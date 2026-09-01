@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { FolderKanban } from "lucide-react";
 
 import { createProject } from "@/app/w/[workspace]/projects/actions";
 import { EmptyState } from "@/components/empty-state";
 import { PageFrame, PageHeader } from "@/components/page-frame";
 import { ProjectStatusBadge } from "@/components/status-badge";
+import { Surface } from "@/components/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,26 +50,27 @@ export default async function ProjectsPage({
         description={`Arbeid som hører til ${workspace.name}.`}
       />
 
-      <form
+      <Surface
         id="nytt"
-        action={createProject}
-        className="scroll-mt-6 flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/8 sm:flex-row sm:items-end"
+        className="scroll-mt-6 flex flex-col gap-3 p-5 sm:flex-row sm:items-end"
       >
-        <input type="hidden" name="workspace_slug" value={slug} />
-        <div className="min-w-0 flex-1 space-y-2">
-          <Label htmlFor="name">Nytt prosjekt</Label>
-          <Input
-            id="name"
-            name="name"
-            required
-            placeholder="F.eks. Nettside"
-            className="h-9"
-          />
-        </div>
-        <Button type="submit" className="h-9">
-          Opprett
-        </Button>
-      </form>
+        <form action={createProject} className="flex w-full flex-col gap-3 sm:flex-row sm:items-end">
+          <input type="hidden" name="workspace_slug" value={slug} />
+          <div className="min-w-0 flex-1 space-y-2">
+            <Label htmlFor="name">Nytt prosjekt</Label>
+            <Input
+              id="name"
+              name="name"
+              required
+              placeholder="F.eks. Nettside"
+              className="h-10"
+            />
+          </div>
+          <Button type="submit" className="h-10 rounded-xl">
+            Opprett
+          </Button>
+        </form>
+      </Surface>
 
       {projects.length === 0 ? (
         <EmptyState
@@ -80,19 +83,20 @@ export default async function ProjectsPage({
             <li key={project.id}>
               <Link
                 href={`/w/${slug}/projects/${project.id}`}
-                className="group relative flex h-full flex-col gap-4 overflow-hidden rounded-xl bg-card p-5 ring-1 ring-foreground/8 transition-colors hover:ring-foreground/16"
+                className="group flex h-full flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(26,35,48,0.04)]"
               >
-                <span
-                  aria-hidden
-                  className="absolute inset-y-0 left-0 w-1 bg-[var(--workspace-accent)]"
-                />
-                <div className="flex items-start justify-between gap-3 pl-2">
-                  <h2 className="font-heading text-section text-foreground group-hover:text-foreground">
-                    {project.name}
-                  </h2>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-workspace-soft text-workspace-on-soft">
+                      <FolderKanban className="size-4" />
+                    </span>
+                    <h2 className="font-heading text-section text-foreground">
+                      {project.name}
+                    </h2>
+                  </div>
                   <ProjectStatusBadge value={project.status} />
                 </div>
-                <p className="pl-2 font-mono text-label text-muted-foreground">
+                <p className="font-mono text-label text-muted-foreground">
                   Opprettet {formatDateNb(project.created_at)}
                 </p>
               </Link>

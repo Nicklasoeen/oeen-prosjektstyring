@@ -1,10 +1,18 @@
 import Link from "next/link";
+import {
+  CheckCircle2,
+  CircleDot,
+  FolderKanban,
+  ListTodo,
+} from "lucide-react";
+import type { ReactNode } from "react";
 
 import { ChatLaunch } from "@/components/chat-launch";
 import { EmptyState } from "@/components/empty-state";
 import { PageFrame, PageHeader } from "@/components/page-frame";
 import { ProgressBar } from "@/components/progress-bar";
 import { PriorityBadge, TaskStatusBadge } from "@/components/status-badge";
+import { Surface } from "@/components/surface";
 import { Button } from "@/components/ui/button";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
 import {
@@ -126,36 +134,51 @@ export default async function WorkspaceDashboardPage({
         title="Dashboard"
         description={`Oversikt for ${workspace.name}.`}
         actions={
-          <Button asChild>
+          <Button asChild className="rounded-xl">
             <Link href={`/w/${slug}/projects#nytt`}>Nytt prosjekt</Link>
           </Button>
         }
       />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Aktive prosjekter" value={activeProjects.length} />
-        <StatCard label="Oppgaver" value={tasks.length} />
-        <StatCard label="Pågår" value={inProgress} />
-        <StatCard label="Ferdig" value={completed} />
+        <StatCard
+          label="Aktive prosjekter"
+          value={activeProjects.length}
+          icon={<FolderKanban className="size-4" />}
+        />
+        <StatCard
+          label="Oppgaver"
+          value={tasks.length}
+          icon={<ListTodo className="size-4" />}
+        />
+        <StatCard
+          label="Pågår"
+          value={inProgress}
+          icon={<CircleDot className="size-4" />}
+        />
+        <StatCard
+          label="Ferdig"
+          value={completed}
+          icon={<CheckCircle2 className="size-4" />}
+        />
       </section>
 
       <ChatLaunch slug={slug} hasKey={Boolean(credentialResult.data)} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <section className="space-y-3">
+        <Surface className="p-5">
           <h2 className="font-heading text-section">I dag</h2>
           {dueToday.length === 0 ? (
-            <EmptyState
-              title="Ingenting med frist i dag"
-              description="Oppgaver med frist i dag eller forfalt vises her."
-            />
+            <p className="mt-4 text-sm text-muted-foreground">
+              Ingen oppgaver med frist i dag eller forfalt.
+            </p>
           ) : (
-            <ul className="grid gap-3">
+            <ul className="mt-4 grid gap-3">
               {dueToday.map((task) => (
                 <li key={task.id}>
                   <Link
                     href={`/w/${slug}/projects/${task.project_id}`}
-                    className="flex flex-col gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/8"
+                    className="flex flex-col gap-3 rounded-xl border border-border bg-workspace-wash/60 p-4"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-heading text-sm font-semibold">
@@ -185,27 +208,25 @@ export default async function WorkspaceDashboardPage({
               ))}
             </ul>
           )}
-        </section>
+        </Surface>
 
-        <section className="space-y-3">
+        <Surface className="p-5">
           <h2 className="font-heading text-section">Aktivitet</h2>
           {activity.length === 0 ? (
-            <EmptyState
-              title="Ingen aktivitet ennå"
-              description="Når du oppretter prosjekter, oppgaver eller starter timer, vises det her."
-            />
+            <p className="mt-4 text-sm text-muted-foreground">
+              Når du oppretter prosjekter, oppgaver eller starter timer, vises
+              det her.
+            </p>
           ) : (
-            <ul className="divide-y rounded-xl bg-card ring-1 ring-foreground/8">
+            <ul className="mt-2 divide-y divide-border">
               {activity.map((row) => (
-                <li key={row.id} className="px-4 py-3">
+                <li key={row.id} className="py-3">
                   <p className="text-sm text-foreground">
-                    {row.user_id === userId ? "Du" : "Noen"}{" "}
+                    <span className="font-medium">
+                      {row.user_id === userId ? "Du" : "Noen"}
+                    </span>{" "}
                     {activityVerb(row.action, row.entity_type)}
-                    {activitySubject(
-                      row,
-                      projectNameById,
-                      taskTitleById
-                    )}
+                    {activitySubject(row, projectNameById, taskTitleById)}
                   </p>
                   <p className="mt-0.5 font-mono text-label text-muted-foreground">
                     {formatRelativeNb(row.created_at)}
@@ -214,13 +235,13 @@ export default async function WorkspaceDashboardPage({
               ))}
             </ul>
           )}
-        </section>
+        </Surface>
       </div>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-heading text-section">Aktive prosjekter</h2>
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="outline" size="sm" className="rounded-xl">
             <Link href={`/w/${slug}/projects`}>Alle prosjekter</Link>
           </Button>
         </div>
@@ -229,7 +250,7 @@ export default async function WorkspaceDashboardPage({
             title="Ingen prosjekter ennå"
             description="Opprett det første prosjektet for å fylle dashbordet."
           >
-            <Button asChild>
+            <Button asChild className="rounded-xl">
               <Link href={`/w/${slug}/projects#nytt`}>Nytt prosjekt</Link>
             </Button>
           </EmptyState>
@@ -239,18 +260,16 @@ export default async function WorkspaceDashboardPage({
               <li key={project.id}>
                 <Link
                   href={`/w/${slug}/projects/${project.id}`}
-                  className="group relative flex h-full flex-col gap-4 overflow-hidden rounded-xl bg-card p-5 ring-1 ring-foreground/8"
+                  className="group flex h-full flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(26,35,48,0.04)]"
                 >
-                  <span
-                    aria-hidden
-                    className="absolute inset-y-0 left-0 w-1 bg-[var(--workspace-accent)]"
-                  />
-                  <h3 className="pl-2 font-heading text-section">
-                    {project.name}
-                  </h3>
+                  <div className="flex items-start gap-3">
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-workspace-soft text-workspace-on-soft">
+                      <FolderKanban className="size-4" />
+                    </span>
+                    <h3 className="font-heading text-section">{project.name}</h3>
+                  </div>
                   <ProgressBar
                     value={progressByProject.get(project.id) ?? 0}
-                    className="pl-2"
                   />
                 </Link>
               </li>
@@ -262,12 +281,25 @@ export default async function WorkspaceDashboardPage({
   );
 }
 
-function StatCard({ label, value }: { label: string; value: number }) {
+function StatCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string;
+  value: number;
+  icon: ReactNode;
+}) {
   return (
-    <div className="rounded-xl bg-card px-4 py-5 ring-1 ring-foreground/8">
-      <p className="text-label text-muted-foreground">{label}</p>
-      <p className="mt-2 font-heading text-display tabular-nums">{value}</p>
-    </div>
+    <Surface className="px-4 py-5">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-label text-muted-foreground">{label}</p>
+        <span className="flex size-8 items-center justify-center rounded-lg bg-workspace-soft text-workspace-on-soft">
+          {icon}
+        </span>
+      </div>
+      <p className="mt-3 font-heading text-display tabular-nums">{value}</p>
+    </Surface>
   );
 }
 
@@ -283,6 +315,12 @@ function activityVerb(action: string, entityType: string): string {
   }
   if (action === "timer.stopped") {
     return "stoppet timer";
+  }
+  if (action === "updated" && entityType === "workspace") {
+    return "oppdaterte workspace-et";
+  }
+  if (action === "left") {
+    return "forlot workspace-et";
   }
   return action;
 }

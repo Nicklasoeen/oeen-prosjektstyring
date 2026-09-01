@@ -9,6 +9,7 @@ import { EmptyState } from "@/components/empty-state";
 import { PageFrame, PageHeader } from "@/components/page-frame";
 import { ProgressBar } from "@/components/progress-bar";
 import { PriorityBadge, TaskStatusBadge } from "@/components/status-badge";
+import { Surface } from "@/components/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -101,43 +102,47 @@ export default async function ProjectDetailPage({
         }
       />
 
-      <form
-        action={createTask}
-        className="grid gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/8 sm:grid-cols-2"
-      >
-        <input type="hidden" name="workspace_slug" value={slug} />
-        <input type="hidden" name="project_id" value={project.id} />
-        <div className="space-y-2 sm:col-span-2">
-          <Label htmlFor="title">Ny oppgave</Label>
-          <Input
-            id="title"
-            name="title"
-            required
-            placeholder="F.eks. Skrive tilbud"
-            className="h-9"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="priority">Prioritet</Label>
-          <select
-            id="priority"
-            name="priority"
-            defaultValue="medium"
-            className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm"
-          >
-            <option value="low">Lav</option>
-            <option value="medium">Middels</option>
-            <option value="urgent">Haster</option>
-          </select>
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="due_date">Frist</Label>
-          <Input id="due_date" name="due_date" type="date" className="h-9" />
-        </div>
-        <div className="sm:col-span-2">
-          <Button type="submit">Opprett oppgave</Button>
-        </div>
-      </form>
+      <Surface className="p-5">
+        <form
+          action={createTask}
+          className="grid gap-3 sm:grid-cols-2"
+        >
+          <input type="hidden" name="workspace_slug" value={slug} />
+          <input type="hidden" name="project_id" value={project.id} />
+          <div className="space-y-2 sm:col-span-2">
+            <Label htmlFor="title">Ny oppgave</Label>
+            <Input
+              id="title"
+              name="title"
+              required
+              placeholder="F.eks. Skrive tilbud"
+              className="h-10"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="priority">Prioritet</Label>
+            <select
+              id="priority"
+              name="priority"
+              defaultValue="medium"
+              className="h-10 w-full rounded-lg border border-input bg-background px-2.5 text-sm"
+            >
+              <option value="low">Lav</option>
+              <option value="medium">Middels</option>
+              <option value="urgent">Haster</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="due_date">Frist</Label>
+            <Input id="due_date" name="due_date" type="date" className="h-10" />
+          </div>
+          <div className="sm:col-span-2">
+            <Button type="submit" className="rounded-xl">
+              Opprett oppgave
+            </Button>
+          </div>
+        </form>
+      </Surface>
 
       {tasks.length === 0 ? (
         <EmptyState
@@ -154,10 +159,8 @@ export default async function ProjectDetailPage({
               isPastDate(task.due_date);
 
             return (
-              <li
-                key={task.id}
-                className="flex flex-col gap-4 rounded-xl bg-card p-5 ring-1 ring-foreground/8 sm:flex-row sm:items-center sm:justify-between"
-              >
+              <li key={task.id}>
+                <Surface className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="min-w-0 flex-1 space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="font-heading text-section text-foreground">
@@ -198,10 +201,12 @@ export default async function ProjectDetailPage({
                   <Button
                     type="submit"
                     variant={running ? "destructive" : "outline"}
+                    className="rounded-xl"
                   >
                     {running ? "Stopp" : "Start"}
                   </Button>
                 </form>
+                </Surface>
               </li>
             );
           })}

@@ -12,7 +12,7 @@ export function PageFrame({
   return (
     <main
       className={cn(
-        "mx-auto flex w-full max-w-5xl flex-col gap-8 px-6 py-8 md:px-8",
+        "mx-auto flex w-full max-w-6xl flex-col gap-7 px-5 py-7 md:px-8",
         className
       )}
     >
@@ -38,7 +38,9 @@ export function PageHeader({
         {eyebrow ? (
           <p className="text-label text-muted-foreground">{eyebrow}</p>
         ) : null}
-        <h1 className="font-heading text-title text-foreground">{title}</h1>
+        <h1 className="font-heading text-title tracking-tight text-foreground">
+          {title}
+        </h1>
         {description ? (
           <div className="mt-1 max-w-xl text-sm text-muted-foreground">
             {description}

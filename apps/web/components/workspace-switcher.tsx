@@ -34,7 +34,7 @@ export function WorkspaceSwitcher({
         <Button
           type="button"
           variant="outline"
-          className="h-auto w-full justify-between gap-2 px-3 py-2 text-left font-normal"
+          className="h-auto w-full justify-between gap-2 rounded-xl border-border bg-card px-3 py-2.5 text-left font-normal"
         >
           <span className="flex min-w-0 items-center gap-2">
             {current ? <AccentDot accent={current.colorAccent} /> : null}
@@ -63,7 +63,7 @@ export function WorkspaceSwitcher({
               </span>
               <Check
                 className={cn(
-                  "size-3.5 text-[var(--workspace-accent)]",
+                  "size-3.5 text-workspace-accent",
                   active ? "opacity-100" : "opacity-0"
                 )}
               />

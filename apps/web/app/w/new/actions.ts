@@ -4,7 +4,10 @@ import { redirect } from "next/navigation";
 
 import { getAuthUserId } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { isWorkspaceAccent } from "@/lib/workspace-accent";
+import {
+  isWorkspaceAccent,
+  normalizeWorkspaceAccent,
+} from "@/lib/workspace-accent";
 
 function slugFromName(name: string) {
   const base = name
@@ -25,11 +28,13 @@ export async function createWorkspace(formData: FormData) {
   }
 
   const name = String(formData.get("name") ?? "").trim();
-  const colorAccent = String(formData.get("color_accent") ?? "").toUpperCase();
+  const colorAccentRaw = String(formData.get("color_accent") ?? "");
 
-  if (!name || !isWorkspaceAccent(colorAccent)) {
+  if (!name || !isWorkspaceAccent(colorAccentRaw)) {
     redirect("/w/new?error=invalid");
   }
+
+  const colorAccent = normalizeWorkspaceAccent(colorAccentRaw);
 
   const supabase = await createClient();
   const { error: claimsError } = await supabase.auth.getClaims();

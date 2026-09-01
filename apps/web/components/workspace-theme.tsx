@@ -1,6 +1,9 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { ReactNode } from "react";
 
-import { resolveWorkspaceAccent } from "@/lib/workspace-accent";
+import {
+  resolveWorkspaceTheme,
+  workspaceThemeCssVars,
+} from "@/lib/workspace-accent";
 
 export function WorkspaceTheme({
   accent,
@@ -9,22 +12,10 @@ export function WorkspaceTheme({
   accent: string | null;
   children: ReactNode;
 }) {
-  const resolved = resolveWorkspaceAccent(accent);
+  const theme = resolveWorkspaceTheme(accent);
 
   return (
-    <div
-      className="min-h-screen"
-      style={
-        {
-          "--workspace-accent": resolved.hex,
-          "--workspace-accent-foreground": resolved.foreground,
-          "--primary": resolved.hex,
-          "--primary-foreground": resolved.foreground,
-          "--ring": resolved.hex,
-          "--sidebar-primary": resolved.hex,
-        } as CSSProperties
-      }
-    >
+    <div className="min-h-screen bg-background" style={workspaceThemeCssVars(theme)}>
       {children}
     </div>
   );

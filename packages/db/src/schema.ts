@@ -40,12 +40,15 @@ export const taskPriorityEnum = pgEnum("task_priority", [
   "urgent",
 ]);
 
-/** `private.is_workspace_member` / `private.workspace_has_members` live in SQL migrations (security definer, avoids recursive RLS). */
+/** `private.is_workspace_member` / `private.workspace_has_members` / `private.workspace_role` live in SQL migrations (security definer, avoids recursive RLS). */
 const isWorkspaceMember = (workspaceId: AnyPgColumn) =>
   sql`(select private.is_workspace_member(${workspaceId}))`;
 
 const workspaceHasMembers = (workspaceId: AnyPgColumn) =>
   sql`(select private.workspace_has_members(${workspaceId}))`;
+
+const workspaceRole = (workspaceId: AnyPgColumn) =>
+  sql`(select private.workspace_role(${workspaceId}))`;
 
 export const users = pgTable(
   "users",
@@ -106,16 +109,16 @@ export const workspaces = pgTable(
       to: authenticatedRole,
       withCheck: sql`true`,
     }),
-    pgPolicy("workspaces_update_members", {
+    pgPolicy("workspaces_update_editors", {
       for: "update",
       to: authenticatedRole,
-      using: isWorkspaceMember(table.id),
-      withCheck: isWorkspaceMember(table.id),
+      using: sql`${workspaceRole(table.id)} in ('owner', 'member')`,
+      withCheck: sql`${workspaceRole(table.id)} in ('owner', 'member')`,
     }),
-    pgPolicy("workspaces_delete_members", {
+    pgPolicy("workspaces_delete_owners", {
       for: "delete",
       to: authenticatedRole,
-      using: isWorkspaceMember(table.id),
+      using: sql`${workspaceRole(table.id)} = 'owner'`,
     }),
   ]
 );
@@ -168,10 +171,10 @@ export const workspaceMembers = pgTable(
       using: isWorkspaceMember(table.workspaceId),
       withCheck: isWorkspaceMember(table.workspaceId),
     }),
-    pgPolicy("workspace_members_delete_members", {
+    pgPolicy("workspace_members_delete_self", {
       for: "delete",
       to: authenticatedRole,
-      using: isWorkspaceMember(table.workspaceId),
+      using: sql`${table.userId} = ${authUid}`,
     }),
   ]
 );

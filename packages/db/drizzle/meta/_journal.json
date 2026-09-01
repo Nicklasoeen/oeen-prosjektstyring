@@ -57,6 +57,13 @@
       "when": 1788267700000,
       "tag": "0007_chat_credentials_pending",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1788270000000,
+      "tag": "0008_workspace_role_policies",
+      "breakpoints": true
     }
   ]
 }

@@ -8,6 +8,14 @@ export type WorkspaceSummary = {
   role: "owner" | "member" | "viewer";
 };
 
+export function canEditWorkspace(role: WorkspaceSummary["role"]): boolean {
+  return role === "owner" || role === "member";
+}
+
+export function canDeleteWorkspace(role: WorkspaceSummary["role"]): boolean {
+  return role === "owner";
+}
+
 type WorkspaceRow = {
   id: string;
   slug: string;

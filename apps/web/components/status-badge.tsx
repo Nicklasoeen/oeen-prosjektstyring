@@ -18,7 +18,7 @@ const PRIORITY = {
 const PROJECT_STATUS = {
   active: {
     label: "Aktiv",
-    className: "bg-[#E7F0EA] text-[#2F6F62]",
+    className: "bg-workspace-soft text-workspace-on-soft",
   },
   archived: {
     label: "Arkivert",

@@ -8,6 +8,7 @@ import { useMemo, useState } from "react";
 import { useChatUi } from "@/components/chat-provider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 export function ChatDock({ slug }: { slug: string }) {
   const { open, setOpen } = useChatUi();
@@ -27,8 +28,8 @@ export function ChatDock({ slug }: { slug: string }) {
   }
 
   return (
-    <div className="fixed right-4 bottom-4 z-50 flex h-[min(32rem,calc(100vh-6rem))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-xl bg-card shadow-lg ring-1 ring-foreground/10">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <div className="fixed right-4 bottom-4 z-50 flex h-[min(32rem,calc(100vh-6rem))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(26,35,48,0.12)]">
+      <div className="flex items-center justify-between border-b border-workspace-border bg-workspace-wash px-4 py-3">
         <p className="font-heading text-sm font-semibold">Chat</p>
         <Button
           type="button"
@@ -54,7 +55,15 @@ export function ChatDock({ slug }: { slug: string }) {
             </p>
             {message.parts.map((part, index) =>
               part.type === "text" ? (
-                <p key={`${message.id}-${index}`} className="whitespace-pre-wrap">
+                <p
+                  key={`${message.id}-${index}`}
+                  className={cn(
+                    "whitespace-pre-wrap rounded-xl px-3 py-2",
+                    message.role === "user"
+                      ? "bg-workspace-soft text-workspace-on-soft"
+                      : "bg-muted"
+                  )}
+                >
                   {part.text}
                 </p>
               ) : null

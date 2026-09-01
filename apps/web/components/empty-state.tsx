@@ -10,7 +10,7 @@ export function EmptyState({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col items-center rounded-xl bg-card px-8 py-16 text-center ring-1 ring-foreground/8">
+    <div className="flex flex-col items-center rounded-2xl border border-border bg-card px-8 py-14 text-center shadow-[0_1px_2px_rgba(26,35,48,0.04)]">
       <IslandMark />
       <h2 className="mt-6 font-heading text-section text-foreground">{title}</h2>
       <p className="mt-2 max-w-sm text-sm leading-relaxed text-muted-foreground">
@@ -26,7 +26,7 @@ function IslandMark() {
     <svg
       aria-hidden
       viewBox="0 0 88 40"
-      className="h-10 w-[5.5rem] text-[var(--workspace-accent)]"
+      className="h-10 w-[5.5rem] text-workspace-accent"
     >
       <path
         d="M4 28h80"
