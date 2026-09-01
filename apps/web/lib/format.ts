@@ -33,6 +33,45 @@ export function todayInOslo(): string {
   return new Date().toLocaleDateString("en-CA", { timeZone: "Europe/Oslo" });
 }
 
+/** UTC instant for midnight in Oslo on the given YYYY-MM-DD (handles CET/CEST). */
+export function osloStartOfDay(dateStr: string): Date {
+  for (const offset of ["+01:00", "+02:00"]) {
+    const candidate = new Date(`${dateStr}T00:00:00${offset}`);
+    const osloDate = candidate.toLocaleDateString("en-CA", {
+      timeZone: "Europe/Oslo",
+    });
+    const osloHour = candidate.toLocaleTimeString("en-GB", {
+      timeZone: "Europe/Oslo",
+      hour12: false,
+      hour: "2-digit",
+    });
+    if (osloDate === dateStr && osloHour.startsWith("00")) {
+      return candidate;
+    }
+  }
+  return new Date(`${dateStr}T00:00:00Z`);
+}
+
+export function osloHourNow(now = new Date()): number {
+  return Number(
+    new Intl.DateTimeFormat("en-GB", {
+      timeZone: "Europe/Oslo",
+      hour: "2-digit",
+      hour12: false,
+    }).format(now)
+  );
+}
+
+export function formatFullDateNb(now = new Date()): string {
+  const formatted = new Intl.DateTimeFormat("nb-NO", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: "Europe/Oslo",
+  }).format(now);
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
+}
+
 export function formatRelativeNb(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
