@@ -19,6 +19,7 @@ import {
   toggleTaskAssignee,
   toggleTaskTimer,
   updateTaskBoard,
+  updateTaskCategory,
 } from "@/app/w/[workspace]/projects/actions";
 import { PriorityBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
@@ -32,8 +33,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { formatDueDateNb, isPastDate } from "@/lib/format";
 import {
+  TASK_CATEGORIES,
+  TASK_CATEGORY_LABELS,
   TASK_STATUS_LABELS,
   TASK_STATUSES,
+  type TaskCategory,
   type TaskPriority,
   type TaskStatus,
 } from "@/lib/projects";
@@ -50,10 +54,17 @@ export type KanbanTask = {
   title: string;
   status: TaskStatus;
   section: string | null;
+  category: TaskCategory;
   priority: TaskPriority;
   due_date: string | null;
   assigneeIds: string[];
   running: boolean;
+};
+
+const CATEGORY_DOTS: Record<TaskCategory, string> = {
+  design: "bg-[#8E5BA6]",
+  development: "bg-[#3E6C9E]",
+  other: "bg-muted-foreground/50",
 };
 
 const COLUMN_ICONS: Record<TaskStatus, ReactNode> = {
@@ -290,6 +301,12 @@ function TaskCard({
       <p className="font-heading text-sm font-semibold">{task.title}</p>
       <div className="mt-2 flex flex-wrap items-center gap-1.5">
         <PriorityBadge value={task.priority} />
+        <CategoryTag
+          slug={slug}
+          projectId={projectId}
+          task={task}
+          canEdit={canEdit}
+        />
         {task.due_date ? (
           <span
             className={cn(
@@ -371,6 +388,73 @@ function TaskCard({
         </div>
       ) : null}
     </li>
+  );
+}
+
+function CategoryTag({
+  slug,
+  projectId,
+  task,
+  canEdit,
+}: {
+  slug: string;
+  projectId: string;
+  task: KanbanTask;
+  canEdit: boolean;
+}) {
+  const tag = (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2 py-0.5 text-label font-medium text-muted-foreground">
+      <span
+        aria-hidden
+        className={cn("size-1.5 rounded-full", CATEGORY_DOTS[task.category])}
+      />
+      {TASK_CATEGORY_LABELS[task.category]}
+    </span>
+  );
+
+  if (!canEdit) {
+    return tag;
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="Endre kategori"
+        className="rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+      >
+        {tag}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-48">
+        <DropdownMenuLabel>Kategori</DropdownMenuLabel>
+        {TASK_CATEGORIES.map((option) => (
+          <DropdownMenuItem
+            key={option}
+            onSelect={() => {
+              if (option === task.category) {
+                return;
+              }
+              const formData = new FormData();
+              formData.set("workspace_slug", slug);
+              formData.set("project_id", projectId);
+              formData.set("task_id", task.id);
+              formData.set("category", option);
+              void updateTaskCategory(formData);
+            }}
+          >
+            <span
+              aria-hidden
+              className={cn("size-1.5 rounded-full", CATEGORY_DOTS[option])}
+            />
+            <span className="min-w-0 flex-1">
+              {TASK_CATEGORY_LABELS[option]}
+            </span>
+            {option === task.category ? (
+              <span className="text-label text-muted-foreground">valgt</span>
+            ) : null}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

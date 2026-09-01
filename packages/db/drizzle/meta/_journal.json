@@ -71,6 +71,13 @@
       "when": 1788278400000,
       "tag": "0009_project_detail_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1788645600000,
+      "tag": "0010_project_workflow",
+      "breakpoints": true
     }
   ]
 }

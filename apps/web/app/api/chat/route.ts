@@ -9,7 +9,12 @@ import { NextResponse } from "next/server";
 import { getWorkspaceAccess } from "@/lib/auth/require-workspace";
 import { decryptSecret } from "@/lib/crypto-secret";
 
-type ProjectRow = { id: string; name: string; status: string };
+type ProjectRow = {
+  id: string;
+  name: string;
+  stage: string;
+  customer_name: string;
+};
 type TaskRow = {
   title: string;
   status: string;
@@ -59,7 +64,7 @@ export async function POST(request: Request) {
   const [projectsResult, tasksResult] = await Promise.all([
     supabase
       .from("projects")
-      .select("id, name, status")
+      .select("id, name, stage, customer_name")
       .eq("workspace_id", workspace.id)
       .returns<ProjectRow[]>(),
     supabase
@@ -74,7 +79,8 @@ export async function POST(request: Request) {
       workspace: workspace.name,
       projects: (projectsResult.data ?? []).map((project) => ({
         name: project.name,
-        status: project.status,
+        stage: project.stage,
+        customer: project.customer_name,
         tasks: (tasksResult.data ?? [])
           .filter((task) => task.project_id === project.id)
           .map((task) => ({

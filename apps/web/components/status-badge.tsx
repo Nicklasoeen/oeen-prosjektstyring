@@ -15,14 +15,34 @@ const PRIORITY = {
   },
 } as const;
 
-const PROJECT_STATUS = {
-  active: {
-    label: "Aktiv",
+const PROJECT_STAGE = {
+  new: {
+    label: "Solgt",
+    className: "bg-muted text-muted-foreground",
+  },
+  kickoff: {
+    label: "Oppstart",
+    className: "bg-[#E4EEF6] text-[#2C4A6E]",
+  },
+  design: {
+    label: "Design",
+    className: "bg-[#EBE0EE] text-[#3F2C44]",
+  },
+  production: {
+    label: "Produksjon",
+    className: "bg-[#F8EBD8] text-[#8A5420]",
+  },
+  review: {
+    label: "Gjennomgang",
+    className: "bg-[#DDEDF0] text-[#1F5A68]",
+  },
+  launch: {
+    label: "Lansering",
     className: "bg-workspace-soft text-workspace-on-soft",
   },
-  archived: {
-    label: "Arkivert",
-    className: "bg-muted text-muted-foreground",
+  completed: {
+    label: "Fullført",
+    className: "bg-[#E7F0EA] text-[#2F6F62]",
   },
 } as const;
 
@@ -53,14 +73,14 @@ export function PriorityBadge({
   return <Badge className={PRIORITY[value].className}>{PRIORITY[value].label}</Badge>;
 }
 
-export function ProjectStatusBadge({
+export function ProjectStageBadge({
   value,
 }: {
-  value: keyof typeof PROJECT_STATUS;
+  value: keyof typeof PROJECT_STAGE;
 }) {
   return (
-    <Badge className={PROJECT_STATUS[value].className}>
-      {PROJECT_STATUS[value].label}
+    <Badge className={PROJECT_STAGE[value].className}>
+      {PROJECT_STAGE[value].label}
     </Badge>
   );
 }

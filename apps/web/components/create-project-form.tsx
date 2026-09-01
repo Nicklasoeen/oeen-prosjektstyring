@@ -1,5 +1,6 @@
 "use client";
 
+import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 
 import { createProject } from "@/app/w/[workspace]/projects/actions";
@@ -21,24 +22,32 @@ export function CreateProjectForm({
   error?: string;
 }) {
   const [type, setType] = useState<ProjectType>("custom_website");
+  const [showOptional, setShowOptional] = useState(false);
 
   return (
     <form action={createProject} className="flex w-full flex-col gap-4">
       <input type="hidden" name="workspace_slug" value={slug} />
-      <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="min-w-0 space-y-2">
           <Label htmlFor="name">Nytt prosjekt</Label>
           <Input
             id="name"
             name="name"
             required
-            placeholder="F.eks. Nettside"
+            placeholder="F.eks. Ny nettside"
             className="h-10"
           />
         </div>
-        <Button type="submit" className="h-10">
-          Opprett
-        </Button>
+        <div className="min-w-0 space-y-2">
+          <Label htmlFor="customer_name">Kunde (firma)</Label>
+          <Input
+            id="customer_name"
+            name="customer_name"
+            required
+            placeholder="F.eks. Fjellsport AS"
+            className="h-10"
+          />
+        </div>
       </div>
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Type</legend>
@@ -71,11 +80,85 @@ export function CreateProjectForm({
           })}
         </div>
       </fieldset>
+
+      <button
+        type="button"
+        onClick={() => {
+          setShowOptional((current) => !current);
+        }}
+        className="flex items-center gap-1.5 self-start text-sm text-muted-foreground transition-colors hover:text-foreground"
+      >
+        <ChevronDown
+          className={cn(
+            "size-4 transition-transform",
+            showOptional && "rotate-180"
+          )}
+        />
+        Flere detaljer (valgfritt)
+      </button>
+
+      <div className={cn("grid gap-4 sm:grid-cols-2", !showOptional && "hidden")}>
+        <div className="space-y-2">
+          <Label htmlFor="new_contact_name">Kontaktperson</Label>
+          <Input
+            id="new_contact_name"
+            name="contact_name"
+            placeholder="Navn"
+            className="h-10"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="new_contact_email">Kontakt-e-post</Label>
+          <Input
+            id="new_contact_email"
+            name="contact_email"
+            type="email"
+            placeholder="navn@kunde.no"
+            className="h-10"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="new_old_website_url">Gammel nettside</Label>
+          <Input
+            id="new_old_website_url"
+            name="old_website_url"
+            placeholder="https://gammel-side.no"
+            className="h-10"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="new_estimated_hours">Estimerte timer</Label>
+          <Input
+            id="new_estimated_hours"
+            name="estimated_hours"
+            type="number"
+            min="0"
+            step="0.5"
+            placeholder="F.eks. 20"
+            className="h-10"
+          />
+        </div>
+      </div>
+
       {error === "invalid" ? (
         <p className="text-sm text-destructive">
-          Gi prosjektet et navn og velg type.
+          Gi prosjektet et navn, fyll inn kunde og velg type.
         </p>
       ) : null}
+      {error === "email" ? (
+        <p className="text-sm text-destructive">
+          Skriv inn en gyldig kontakt-e-post.
+        </p>
+      ) : null}
+      {error === "hours" ? (
+        <p className="text-sm text-destructive">
+          Timeestimatet må være et positivt tall.
+        </p>
+      ) : null}
+
+      <Button type="submit" className="h-10 self-start px-6">
+        Opprett prosjekt
+      </Button>
     </form>
   );
 }

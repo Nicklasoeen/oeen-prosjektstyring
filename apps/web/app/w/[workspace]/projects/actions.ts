@@ -7,10 +7,21 @@ import { logActivity } from "@/lib/activity";
 import { canEditWorkspace } from "@/lib/auth/workspace-access";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
 import {
+  isProjectStage,
   isProjectType,
+  isTaskCategory,
   isTaskPriority,
   isTaskStatus,
 } from "@/lib/projects";
+
+const DEFAULT_CHECKLIST = [
+  "Har kunden bilder/logo?",
+  "Lager kunden innhold selv?",
+  "Skal kunden ha Trafikk (SEO-produkt)?",
+  "Skriver kunden tekst selv?",
+  "Har kunden domeneinnlogging?",
+  "Kundeuttalelse etterspurt?",
+] as const;
 
 function projectPath(slug: string, projectId: string, tab?: string) {
   const base = `/w/${slug}/projects/${projectId}`;
@@ -27,6 +38,12 @@ export async function createProject(formData: FormData) {
   const slug = String(formData.get("workspace_slug") ?? "");
   const name = String(formData.get("name") ?? "").trim();
   const typeValue = String(formData.get("type") ?? "");
+  const customerName = String(formData.get("customer_name") ?? "").trim();
+  const contactName = emptyToNull(formData.get("contact_name"));
+  const contactEmail = emptyToNull(formData.get("contact_email"));
+  const oldWebsiteUrl = emptyToNull(formData.get("old_website_url"));
+  const estimatedHoursRaw = String(formData.get("estimated_hours") ?? "").trim();
+
   const { userId, workspace, supabase } = await requireWorkspaceAccess(
     slug,
     `/w/${slug}/projects`
@@ -36,8 +53,17 @@ export async function createProject(formData: FormData) {
     redirect("/unauthorized");
   }
 
-  if (!name || !isProjectType(typeValue)) {
+  if (!name || !customerName || !isProjectType(typeValue)) {
     redirect(`/w/${slug}/projects?error=invalid`);
+  }
+
+  if (contactEmail && !contactEmail.includes("@")) {
+    redirect(`/w/${slug}/projects?error=email`);
+  }
+
+  const estimatedHours = parseHours(estimatedHoursRaw);
+  if (estimatedHours === undefined) {
+    redirect(`/w/${slug}/projects?error=hours`);
   }
 
   const { data, error } = await supabase
@@ -46,13 +72,34 @@ export async function createProject(formData: FormData) {
       workspace_id: workspace.id,
       name,
       type: typeValue,
-      status: "active",
+      customer_name: customerName,
+      contact_name: contactName,
+      contact_email: contactEmail,
+      old_website_url: oldWebsiteUrl,
+      estimated_hours: estimatedHours,
+      stage: "new",
     })
     .select("id")
     .maybeSingle<{ id: string }>();
 
   if (error || !data) {
     throw error ?? new Error("Kunne ikke opprette prosjekt");
+  }
+
+  const { error: checklistError } = await supabase
+    .from("project_checklist_items")
+    .insert(
+      DEFAULT_CHECKLIST.map((label) => ({
+        workspace_id: workspace.id,
+        project_id: data.id,
+        label,
+        checked: false,
+        is_custom: false,
+      }))
+    );
+
+  if (checklistError) {
+    throw checklistError;
   }
 
   await logActivity(supabase, {
@@ -75,6 +122,7 @@ export async function createTask(formData: FormData) {
   const dueDateRaw = String(formData.get("due_date") ?? "").trim();
   const sectionRaw = String(formData.get("section") ?? "").trim();
   const statusValue = String(formData.get("status") ?? "todo");
+  const categoryValue = String(formData.get("category") ?? "development");
 
   const { userId, workspace, supabase } = await requireWorkspaceAccess(
     slug,
@@ -98,6 +146,7 @@ export async function createTask(formData: FormData) {
 
   const priority = isTaskPriority(priorityValue) ? priorityValue : "medium";
   const status = isTaskStatus(statusValue) ? statusValue : "todo";
+  const category = isTaskCategory(categoryValue) ? categoryValue : "development";
   const dueDate = dueDateRaw.length > 0 ? dueDateRaw : null;
   const section = sectionRaw.length > 0 ? sectionRaw : null;
 
@@ -111,6 +160,7 @@ export async function createTask(formData: FormData) {
       due_date: dueDate,
       status,
       section,
+      category,
       progress: 0,
     })
     .select("id")
@@ -132,10 +182,52 @@ export async function createTask(formData: FormData) {
   redirect(projectPath(slug, project.id, "oppgaver"));
 }
 
-export async function updateProjectNotes(formData: FormData) {
+export async function updateProjectStage(formData: FormData) {
   const slug = String(formData.get("workspace_slug") ?? "");
   const projectId = String(formData.get("project_id") ?? "");
-  const notes = String(formData.get("notes") ?? "");
+  const stageValue = String(formData.get("stage") ?? "");
+
+  const { userId, workspace, supabase } = await requireWorkspaceAccess(
+    slug,
+    projectPath(slug, projectId)
+  );
+
+  if (!canEditWorkspace(workspace.role)) {
+    redirect("/unauthorized");
+  }
+
+  if (!isProjectStage(stageValue)) {
+    redirect(projectPath(slug, projectId));
+  }
+
+  const { data, error } = await supabase
+    .from("projects")
+    .update({ stage: stageValue })
+    .eq("id", projectId)
+    .eq("workspace_id", workspace.id)
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error || !data) {
+    throw error ?? new Error("Kunne ikke endre fase");
+  }
+
+  await logActivity(supabase, {
+    workspaceId: workspace.id,
+    userId,
+    entityType: "project",
+    entityId: data.id,
+    action: "stage.changed",
+  });
+
+  revalidateProject(slug, projectId);
+}
+
+export async function toggleChecklistItem(formData: FormData) {
+  const slug = String(formData.get("workspace_slug") ?? "");
+  const projectId = String(formData.get("project_id") ?? "");
+  const itemId = String(formData.get("item_id") ?? "");
+  const nextChecked = String(formData.get("checked") ?? "") === "1";
 
   const { userId, workspace, supabase } = await requireWorkspaceAccess(
     slug,
@@ -147,22 +239,214 @@ export async function updateProjectNotes(formData: FormData) {
   }
 
   const { data, error } = await supabase
-    .from("projects")
-    .update({ notes })
-    .eq("id", projectId)
+    .from("project_checklist_items")
+    .update({ checked: nextChecked })
+    .eq("id", itemId)
+    .eq("project_id", projectId)
     .eq("workspace_id", workspace.id)
     .select("id")
     .maybeSingle<{ id: string }>();
 
   if (error || !data) {
-    throw error ?? new Error("Kunne ikke lagre notater");
+    throw error ?? new Error("Kunne ikke oppdatere sjekklisten");
   }
 
   await logActivity(supabase, {
     workspaceId: workspace.id,
     userId,
-    entityType: "project",
+    entityType: "checklist_item",
     entityId: data.id,
+    action: "updated",
+  });
+
+  revalidateProject(slug, projectId);
+}
+
+export async function addChecklistItem(formData: FormData) {
+  const slug = String(formData.get("workspace_slug") ?? "");
+  const projectId = String(formData.get("project_id") ?? "");
+  const label = String(formData.get("label") ?? "").trim();
+
+  const { userId, workspace, supabase } = await requireWorkspaceAccess(
+    slug,
+    projectPath(slug, projectId)
+  );
+
+  if (!canEditWorkspace(workspace.role)) {
+    redirect("/unauthorized");
+  }
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("id", projectId)
+    .eq("workspace_id", workspace.id)
+    .maybeSingle<{ id: string }>();
+
+  if (!project || !label) {
+    redirect(projectPath(slug, projectId));
+  }
+
+  const { data, error } = await supabase
+    .from("project_checklist_items")
+    .insert({
+      workspace_id: workspace.id,
+      project_id: project.id,
+      label,
+      checked: false,
+      is_custom: true,
+    })
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error || !data) {
+    throw error ?? new Error("Kunne ikke legge til sjekkpunkt");
+  }
+
+  await logActivity(supabase, {
+    workspaceId: workspace.id,
+    userId,
+    entityType: "checklist_item",
+    entityId: data.id,
+    action: "created",
+  });
+
+  revalidateProject(slug, projectId);
+}
+
+export async function addProjectNote(formData: FormData) {
+  const slug = String(formData.get("workspace_slug") ?? "");
+  const projectId = String(formData.get("project_id") ?? "");
+  const body = String(formData.get("body") ?? "").trim();
+  const stageValue = String(formData.get("stage") ?? "").trim();
+
+  const { userId, workspace, supabase } = await requireWorkspaceAccess(
+    slug,
+    projectPath(slug, projectId)
+  );
+
+  if (!canEditWorkspace(workspace.role)) {
+    redirect("/unauthorized");
+  }
+
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("id", projectId)
+    .eq("workspace_id", workspace.id)
+    .maybeSingle<{ id: string }>();
+
+  if (!project || !body) {
+    redirect(projectPath(slug, projectId));
+  }
+
+  const stage = isProjectStage(stageValue) ? stageValue : null;
+
+  const { data, error } = await supabase
+    .from("project_notes")
+    .insert({
+      workspace_id: workspace.id,
+      project_id: project.id,
+      user_id: userId,
+      body,
+      stage,
+    })
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error || !data) {
+    throw error ?? new Error("Kunne ikke lagre notatet");
+  }
+
+  await logActivity(supabase, {
+    workspaceId: workspace.id,
+    userId,
+    entityType: "project_note",
+    entityId: data.id,
+    action: "created",
+  });
+
+  revalidateProject(slug, projectId);
+}
+
+export async function updateProjectNoteStage(formData: FormData) {
+  const slug = String(formData.get("workspace_slug") ?? "");
+  const projectId = String(formData.get("project_id") ?? "");
+  const noteId = String(formData.get("note_id") ?? "");
+  const stageValue = String(formData.get("stage") ?? "").trim();
+
+  const { userId, workspace, supabase } = await requireWorkspaceAccess(
+    slug,
+    projectPath(slug, projectId)
+  );
+
+  if (!canEditWorkspace(workspace.role)) {
+    redirect("/unauthorized");
+  }
+
+  const stage = isProjectStage(stageValue) ? stageValue : null;
+
+  const { data, error } = await supabase
+    .from("project_notes")
+    .update({ stage })
+    .eq("id", noteId)
+    .eq("project_id", projectId)
+    .eq("workspace_id", workspace.id)
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error || !data) {
+    throw error ?? new Error("Kunne ikke flytte notatet");
+  }
+
+  await logActivity(supabase, {
+    workspaceId: workspace.id,
+    userId,
+    entityType: "project_note",
+    entityId: data.id,
+    action: "updated",
+  });
+
+  revalidateProject(slug, projectId);
+}
+
+export async function updateTaskCategory(formData: FormData) {
+  const slug = String(formData.get("workspace_slug") ?? "");
+  const projectId = String(formData.get("project_id") ?? "");
+  const taskId = String(formData.get("task_id") ?? "");
+  const categoryValue = String(formData.get("category") ?? "");
+
+  const { userId, workspace, supabase } = await requireWorkspaceAccess(
+    slug,
+    projectPath(slug, projectId, "oppgaver")
+  );
+
+  if (!canEditWorkspace(workspace.role)) {
+    redirect("/unauthorized");
+  }
+
+  if (!isTaskCategory(categoryValue)) {
+    redirect(projectPath(slug, projectId, "oppgaver"));
+  }
+
+  const { data: task, error } = await supabase
+    .from("tasks")
+    .update({ category: categoryValue })
+    .eq("id", taskId)
+    .eq("project_id", projectId)
+    .eq("workspace_id", workspace.id)
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (error || !task) {
+    throw error ?? new Error("Kunne ikke endre kategori");
+  }
+
+  await logActivity(supabase, {
+    workspaceId: workspace.id,
+    userId,
+    entityType: "task",
+    entityId: task.id,
     action: "updated",
   });
 
@@ -173,10 +457,13 @@ export async function updateProjectDetails(formData: FormData) {
   const slug = String(formData.get("workspace_slug") ?? "");
   const projectId = String(formData.get("project_id") ?? "");
   const typeValue = String(formData.get("type") ?? "");
+  const customerName = String(formData.get("customer_name") ?? "").trim();
   const domain = emptyToNull(formData.get("domain"));
   const productionDomain = emptyToNull(formData.get("production_domain"));
   const contactName = emptyToNull(formData.get("contact_name"));
   const contactEmail = emptyToNull(formData.get("contact_email"));
+  const oldWebsiteUrl = emptyToNull(formData.get("old_website_url"));
+  const estimatedHoursRaw = String(formData.get("estimated_hours") ?? "").trim();
 
   const { userId, workspace, supabase } = await requireWorkspaceAccess(
     slug,
@@ -187,7 +474,7 @@ export async function updateProjectDetails(formData: FormData) {
     redirect("/unauthorized");
   }
 
-  if (!isProjectType(typeValue)) {
+  if (!isProjectType(typeValue) || !customerName) {
     redirect(`${projectPath(slug, projectId, "detaljer")}&error=invalid`);
   }
 
@@ -195,14 +482,22 @@ export async function updateProjectDetails(formData: FormData) {
     redirect(`${projectPath(slug, projectId, "detaljer")}&error=email`);
   }
 
+  const estimatedHours = parseHours(estimatedHoursRaw);
+  if (estimatedHours === undefined) {
+    redirect(`${projectPath(slug, projectId, "detaljer")}&error=hours`);
+  }
+
   const { data, error } = await supabase
     .from("projects")
     .update({
       type: typeValue,
+      customer_name: customerName,
       domain,
       production_domain: productionDomain,
       contact_name: contactName,
       contact_email: contactEmail,
+      old_website_url: oldWebsiteUrl,
+      estimated_hours: estimatedHours,
     })
     .eq("id", projectId)
     .eq("workspace_id", workspace.id)
@@ -501,4 +796,16 @@ export async function stopRunningTimer(formData: FormData) {
 function emptyToNull(value: FormDataEntryValue | null): string | null {
   const text = String(value ?? "").trim();
   return text.length > 0 ? text : null;
+}
+
+/** Returns null for empty input, undefined for invalid input. */
+function parseHours(raw: string): number | null | undefined {
+  if (raw.length === 0) {
+    return null;
+  }
+  const parsed = Number(raw.replace(",", "."));
+  if (!Number.isFinite(parsed) || parsed < 0 || parsed > 10000) {
+    return undefined;
+  }
+  return Math.round(parsed * 100) / 100;
 }

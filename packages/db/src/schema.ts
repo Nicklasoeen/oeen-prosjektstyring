@@ -1,12 +1,14 @@
 import { sql } from "drizzle-orm";
 import {
   type AnyPgColumn,
+  boolean,
   check,
   date,
   foreignKey,
   index,
   integer,
   jsonb,
+  numeric,
   pgEnum,
   pgPolicy,
   pgSchema,
@@ -27,9 +29,14 @@ export const workspaceRoleEnum = pgEnum("workspace_role", [
   "viewer",
 ]);
 
-export const projectStatusEnum = pgEnum("project_status", [
-  "active",
-  "archived",
+export const projectStageEnum = pgEnum("project_stage", [
+  "new",
+  "kickoff",
+  "design",
+  "production",
+  "review",
+  "launch",
+  "completed",
 ]);
 
 export const projectTypeEnum = pgEnum("project_type", [
@@ -50,6 +57,13 @@ export const taskPriorityEnum = pgEnum("task_priority", [
   "low",
   "medium",
   "urgent",
+]);
+
+/** Only 'design' and 'development' time counts toward production-hour estimates. */
+export const taskCategoryEnum = pgEnum("task_category", [
+  "design",
+  "development",
+  "other",
 ]);
 
 /** `private.is_workspace_member` / `private.workspace_has_members` / `private.workspace_role` live in SQL migrations (security definer, avoids recursive RLS). */
@@ -197,13 +211,20 @@ export const projects = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     workspaceId: uuid("workspace_id").notNull(),
     name: text("name").notNull(),
-    status: projectStatusEnum("status").notNull().default("active"),
+    stage: projectStageEnum("stage").notNull().default("new"),
     type: projectTypeEnum("type").notNull().default("other"),
-    domain: text("domain"),
-    productionDomain: text("production_domain"),
+    /** The client company — distinct from the contact person. */
+    customerName: text("customer_name").notNull().default(""),
     contactName: text("contact_name"),
     contactEmail: text("contact_email"),
-    notes: text("notes"),
+    oldWebsiteUrl: text("old_website_url"),
+    domain: text("domain"),
+    productionDomain: text("production_domain"),
+    estimatedHours: numeric("estimated_hours", {
+      precision: 7,
+      scale: 2,
+      mode: "number",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),
@@ -249,6 +270,7 @@ export const tasks = pgTable(
     title: text("title").notNull(),
     status: taskStatusEnum("status").notNull().default("todo"),
     section: text("section"),
+    category: taskCategoryEnum("category").notNull().default("development"),
     priority: taskPriorityEnum("priority").notNull().default("medium"),
     progress: integer("progress").notNull().default(0),
     dueDate: date("due_date", { mode: "string" }),
@@ -287,6 +309,102 @@ export const tasks = pgTable(
       withCheck: isWorkspaceMember(table.workspaceId),
     }),
     pgPolicy("tasks_delete_members", {
+      for: "delete",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+    }),
+  ]
+);
+
+export const projectChecklistItems = pgTable(
+  "project_checklist_items",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    label: text("label").notNull(),
+    checked: boolean("checked").notNull().default(false),
+    isCustom: boolean("is_custom").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("project_checklist_items_project_id_idx").on(table.projectId),
+    index("project_checklist_items_workspace_id_idx").on(table.workspaceId),
+    foreignKey({
+      columns: [table.projectId, table.workspaceId],
+      foreignColumns: [projects.id, projects.workspaceId],
+      name: "project_checklist_items_project_id_workspace_id_fk",
+    }).onDelete("cascade"),
+    pgPolicy("project_checklist_items_select_members", {
+      for: "select",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+    }),
+    pgPolicy("project_checklist_items_insert_members", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: isWorkspaceMember(table.workspaceId),
+    }),
+    pgPolicy("project_checklist_items_update_members", {
+      for: "update",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+      withCheck: isWorkspaceMember(table.workspaceId),
+    }),
+    pgPolicy("project_checklist_items_delete_members", {
+      for: "delete",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+    }),
+  ]
+);
+
+export const projectNotes = pgTable(
+  "project_notes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    body: text("body").notNull(),
+    /** Snapshot of the project stage when written; editable afterwards. */
+    stage: projectStageEnum("stage"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("project_notes_project_id_idx").on(table.projectId),
+    index("project_notes_workspace_id_idx").on(table.workspaceId),
+    foreignKey({
+      columns: [table.projectId, table.workspaceId],
+      foreignColumns: [projects.id, projects.workspaceId],
+      name: "project_notes_project_id_workspace_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "project_notes_user_id_fk",
+    }).onDelete("cascade"),
+    pgPolicy("project_notes_select_members", {
+      for: "select",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+    }),
+    pgPolicy("project_notes_insert_members", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: sql`${isWorkspaceMember(table.workspaceId)} and ${table.userId} = ${authUid}`,
+    }),
+    pgPolicy("project_notes_update_members", {
+      for: "update",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+      withCheck: isWorkspaceMember(table.workspaceId),
+    }),
+    pgPolicy("project_notes_delete_members", {
       for: "delete",
       to: authenticatedRole,
       using: isWorkspaceMember(table.workspaceId),

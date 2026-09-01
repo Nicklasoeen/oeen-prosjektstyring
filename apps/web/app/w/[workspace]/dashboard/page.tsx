@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils";
 type ProjectRow = {
   id: string;
   name: string;
-  status: "active" | "archived";
+  stage: string;
   type: "custom_website" | "landing_page" | "graphic" | "other";
 };
 
@@ -100,7 +100,7 @@ export default async function WorkspaceDashboardPage({
   ] = await Promise.all([
     supabase
       .from("projects")
-      .select("id, name, status, type")
+      .select("id, name, stage, type")
       .eq("workspace_id", workspace.id)
       .order("created_at", { ascending: false })
       .returns<ProjectRow[]>(),
@@ -158,7 +158,7 @@ export default async function WorkspaceDashboardPage({
   const timeEntries = timeEntriesResult.data ?? [];
 
   const activeProjects = projects.filter(
-    (project) => project.status === "active"
+    (project) => project.stage !== "completed"
   );
   const openTasks = tasks.filter((task) => task.status !== "done");
   const inProgress = tasks.filter(
@@ -237,8 +237,8 @@ export default async function WorkspaceDashboardPage({
           value={activeProjects.length}
           detail={
             projects.length === activeProjects.length
-              ? "Ingen arkiverte"
-              : `${projects.length - activeProjects.length} arkivert`
+              ? "Ingen fullførte ennå"
+              : `${projects.length - activeProjects.length} fullført`
           }
           icon={<FolderKanban className="size-4" />}
         />
@@ -564,14 +564,35 @@ function activityVerb(action: string, entityType: string): string {
   if (action === "created" && entityType === "task") {
     return "opprettet oppgaven";
   }
+  if (action === "created" && entityType === "project_note") {
+    return "skrev et notat";
+  }
+  if (action === "created" && entityType === "checklist_item") {
+    return "la til et sjekkpunkt";
+  }
   if (action === "timer.started") {
     return "startet timer";
   }
   if (action === "timer.stopped") {
     return "stoppet timer";
   }
+  if (action === "stage.changed") {
+    return "flyttet prosjektet til ny fase";
+  }
   if (action === "updated" && entityType === "workspace") {
     return "oppdaterte workspace-et";
+  }
+  if (action === "updated" && entityType === "project") {
+    return "oppdaterte prosjektet";
+  }
+  if (action === "updated" && entityType === "task") {
+    return "oppdaterte oppgaven";
+  }
+  if (action === "updated" && entityType === "checklist_item") {
+    return "oppdaterte sjekklisten";
+  }
+  if (action === "updated" && entityType === "project_note") {
+    return "flyttet et notat";
   }
   if (action === "left") {
     return "forlot workspace-et";

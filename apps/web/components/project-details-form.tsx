@@ -17,10 +17,13 @@ export function ProjectDetailsForm({
   slug,
   projectId,
   type: initialType,
+  customerName,
   domain,
   productionDomain,
   contactName,
   contactEmail,
+  oldWebsiteUrl,
+  estimatedHours,
   canEdit,
   saved,
   error,
@@ -28,10 +31,13 @@ export function ProjectDetailsForm({
   slug: string;
   projectId: string;
   type: ProjectType;
+  customerName: string;
   domain: string | null;
   productionDomain: string | null;
   contactName: string | null;
   contactEmail: string | null;
+  oldWebsiteUrl: string | null;
+  estimatedHours: number | null;
   canEdit: boolean;
   saved?: boolean;
   error?: string;
@@ -76,6 +82,43 @@ export function ProjectDetailsForm({
         </div>
       </fieldset>
       <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="customer_name">Kunde (firma)</Label>
+          <Input
+            id="customer_name"
+            name="customer_name"
+            required
+            defaultValue={customerName}
+            disabled={!canEdit}
+            placeholder="F.eks. Fjellsport AS"
+            className="h-10"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="estimated_hours">Estimerte timer</Label>
+          <Input
+            id="estimated_hours"
+            name="estimated_hours"
+            type="number"
+            min="0"
+            step="0.5"
+            defaultValue={estimatedHours ?? ""}
+            disabled={!canEdit}
+            placeholder="F.eks. 20"
+            className="h-10"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="old_website_url">Gammel nettside</Label>
+          <Input
+            id="old_website_url"
+            name="old_website_url"
+            defaultValue={oldWebsiteUrl ?? ""}
+            disabled={!canEdit}
+            placeholder="https://gammel-side.no"
+            className="h-10"
+          />
+        </div>
         <div className="space-y-2">
           <Label htmlFor="domain">Domene</Label>
           <Input
@@ -124,10 +167,17 @@ export function ProjectDetailsForm({
         <p className="text-sm text-workspace-accent">Detaljene er lagret.</p>
       ) : null}
       {error === "invalid" ? (
-        <p className="text-sm text-destructive">Velg en gyldig prosjekttype.</p>
+        <p className="text-sm text-destructive">
+          Fyll inn kundenavn og velg en gyldig prosjekttype.
+        </p>
       ) : null}
       {error === "email" ? (
         <p className="text-sm text-destructive">Skriv inn en gyldig e-post.</p>
+      ) : null}
+      {error === "hours" ? (
+        <p className="text-sm text-destructive">
+          Timeestimatet må være et positivt tall.
+        </p>
       ) : null}
       {canEdit ? (
         <Button type="submit">Lagre detaljer</Button>

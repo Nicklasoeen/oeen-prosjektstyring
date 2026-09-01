@@ -4,18 +4,23 @@ import { FolderKanban } from "lucide-react";
 import { CreateProjectForm } from "@/components/create-project-form";
 import { EmptyState } from "@/components/empty-state";
 import { PageFrame, PageHeader } from "@/components/page-frame";
-import { ProjectStatusBadge } from "@/components/status-badge";
+import { ProjectStageBadge } from "@/components/status-badge";
 import { Surface, surfaceClass } from "@/components/surface";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
 import { formatDateNb } from "@/lib/format";
-import { isProjectType, PROJECT_TYPE_LABELS } from "@/lib/projects";
+import {
+  isProjectStage,
+  isProjectType,
+  PROJECT_TYPE_LABELS,
+} from "@/lib/projects";
 import { cn } from "@/lib/utils";
 
 type ProjectRow = {
   id: string;
   name: string;
-  status: "active" | "archived";
+  stage: string;
   type: string;
+  customer_name: string;
   created_at: string;
 };
 
@@ -35,7 +40,7 @@ export default async function ProjectsPage({
 
   const { data, error: queryError } = await supabase
     .from("projects")
-    .select("id, name, status, type, created_at")
+    .select("id, name, stage, type, customer_name, created_at")
     .eq("workspace_id", workspace.id)
     .order("created_at", { ascending: false })
     .returns<ProjectRow[]>();
@@ -85,10 +90,17 @@ export default async function ProjectsPage({
                         </h2>
                         <p className="mt-1 text-label text-muted-foreground">
                           {typeLabel}
+                          {project.customer_name
+                            ? ` · ${project.customer_name}`
+                            : ""}
                         </p>
                       </div>
                     </div>
-                    <ProjectStatusBadge value={project.status} />
+                    <ProjectStageBadge
+                      value={
+                        isProjectStage(project.stage) ? project.stage : "new"
+                      }
+                    />
                   </div>
                   <p className="font-mono text-label text-muted-foreground">
                     Opprettet {formatDateNb(project.created_at)}
