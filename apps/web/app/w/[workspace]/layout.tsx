@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { signOut } from "@/app/login/actions";
@@ -36,10 +37,26 @@ export default async function WorkspaceLayout({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="flex items-center justify-between gap-4 border-b px-4 py-3">
-        <WorkspaceSwitcher
-          currentSlug={slug}
-          workspaces={workspaces}
-        />
+        <div className="flex items-center gap-4">
+          <WorkspaceSwitcher
+            currentSlug={slug}
+            workspaces={workspaces}
+          />
+          <nav className="flex items-center gap-3 text-sm">
+            <Link
+              href={`/w/${slug}/dashboard`}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Dashboard
+            </Link>
+            <Link
+              href={`/w/${slug}/projects`}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              Prosjekter
+            </Link>
+          </nav>
+        </div>
         <form action={signOut}>
           <Button type="submit" variant="ghost">
             Logg ut

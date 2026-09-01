@@ -50,15 +50,17 @@ export default async function LoginPage({
           {sent ? (
             <div className="space-y-3 text-sm">
               <p>Sjekk innboksen — og eventuelt spam — for innloggingslenken.</p>
-              <p className="text-muted-foreground">
-                Lokalt finner du e-posten i Mailpit:{" "}
-                <Link
-                  className="underline underline-offset-4"
-                  href="http://127.0.0.1:54324"
-                >
-                  http://127.0.0.1:54324
-                </Link>
-              </p>
+              {process.env.NODE_ENV === "development" ? (
+                <p className="text-muted-foreground">
+                  Lokalt finner du e-posten i Mailpit:{" "}
+                  <Link
+                    className="underline underline-offset-4"
+                    href="http://127.0.0.1:54324"
+                  >
+                    http://127.0.0.1:54324
+                  </Link>
+                </p>
+              ) : null}
             </div>
           ) : (
             <form action={sendMagicLink} className="space-y-4">
