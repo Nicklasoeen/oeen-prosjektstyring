@@ -7,10 +7,7 @@ import { ThemePicker } from "@/components/theme-picker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  resolveWorkspaceTheme,
-  workspaceThemeCssVars,
-} from "@/lib/workspace-accent";
+import { resolveWorkspaceTheme } from "@/lib/workspace-accent";
 
 export function WorkspaceSettingsForm({
   slug,
@@ -29,14 +26,9 @@ export function WorkspaceSettingsForm({
 }) {
   const initial = resolveWorkspaceTheme(accent);
   const [themeId, setThemeId] = useState(initial.id);
-  const theme = resolveWorkspaceTheme(themeId);
 
   return (
-    <form
-      action={updateWorkspace}
-      className="space-y-5"
-      style={workspaceThemeCssVars(theme)}
-    >
+    <form action={updateWorkspace} className="space-y-5">
       <input type="hidden" name="workspace_slug" value={slug} />
       <div className="space-y-2">
         <Label htmlFor="workspace_name">Navn</Label>
@@ -55,7 +47,7 @@ export function WorkspaceSettingsForm({
         disabled={!canEdit}
       />
       {saved ? (
-        <p className="text-sm text-workspace-on-soft">Endringene er lagret.</p>
+        <p className="text-sm text-workspace-accent">Endringene er lagret.</p>
       ) : null}
       {error === "invalid" ? (
         <p className="text-sm text-destructive">Fyll inn navn og velg et tema.</p>
@@ -66,7 +58,7 @@ export function WorkspaceSettingsForm({
         </p>
       ) : null}
       {canEdit ? (
-        <Button type="submit" className="h-10 rounded-xl">
+        <Button type="submit" className="h-10">
           Lagre workspace
         </Button>
       ) : (

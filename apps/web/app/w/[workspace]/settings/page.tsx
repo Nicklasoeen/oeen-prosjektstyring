@@ -91,7 +91,7 @@ export default async function SettingsPage({
             </p>
           )}
           {saved === "1" ? (
-            <p className="text-sm text-workspace-on-soft">Nøkkelen er lagret.</p>
+            <p className="text-sm text-workspace-accent">Nøkkelen er lagret.</p>
           ) : null}
           {error === "invalid" ? (
             <p className="text-sm text-destructive">
@@ -112,7 +112,7 @@ export default async function SettingsPage({
                 placeholder="sk-ant-…"
               />
             </div>
-            <Button type="submit" className="rounded-xl">
+            <Button type="submit">
               Lagre nøkkel
             </Button>
           </form>
@@ -141,7 +141,7 @@ export default async function SettingsPage({
           ) : null}
           <form action={leaveWorkspace}>
             <input type="hidden" name="workspace_slug" value={slug} />
-            <Button type="submit" variant="outline" className="rounded-xl">
+            <Button type="submit" variant="outline">
               Forlat workspace
             </Button>
           </form>

@@ -137,7 +137,7 @@ export default async function ProjectDetailPage({
             <Input id="due_date" name="due_date" type="date" className="h-10" />
           </div>
           <div className="sm:col-span-2">
-            <Button type="submit" className="rounded-xl">
+            <Button type="submit">
               Opprett oppgave
             </Button>
           </div>
@@ -201,7 +201,6 @@ export default async function ProjectDetailPage({
                   <Button
                     type="submit"
                     variant={running ? "destructive" : "outline"}
-                    className="rounded-xl"
                   >
                     {running ? "Stopp" : "Start"}
                   </Button>

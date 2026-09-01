@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MessageSquare } from "lucide-react";
 
 import { useChatUi } from "@/components/chat-provider";
+import { Surface } from "@/components/surface";
 import { Button } from "@/components/ui/button";
 
 export function ChatLaunch({
@@ -16,10 +17,10 @@ export function ChatLaunch({
   const { setOpen } = useChatUi();
 
   return (
-    <section className="flex flex-col gap-4 rounded-2xl border border-workspace-border bg-workspace-wash p-5 sm:flex-row sm:items-center sm:justify-between">
+    <Surface className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-workspace-soft text-workspace-on-soft">
-          <MessageSquare className="size-4" />
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+          <MessageSquare className="size-4 text-workspace-accent" />
         </span>
         <div>
           <h2 className="font-heading text-section">Chat</h2>
@@ -31,18 +32,14 @@ export function ChatLaunch({
         </div>
       </div>
       {hasKey ? (
-        <Button
-          type="button"
-          className="rounded-xl"
-          onClick={() => setOpen(true)}
-        >
+        <Button type="button" onClick={() => setOpen(true)}>
           Åpne chat
         </Button>
       ) : (
-        <Button asChild className="rounded-xl">
+        <Button asChild>
           <Link href={`/w/${slug}/settings`}>Legg inn nøkkel</Link>
         </Button>
       )}
-    </section>
+    </Surface>
   );
 }

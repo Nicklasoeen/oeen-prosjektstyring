@@ -34,7 +34,7 @@ export function WorkspaceSwitcher({
         <Button
           type="button"
           variant="outline"
-          className="h-auto w-full justify-between gap-2 rounded-xl border-border bg-card px-3 py-2.5 text-left font-normal"
+          className="h-auto w-full justify-between gap-2 rounded-xl border-black/[0.04] bg-card px-3 py-2.5 text-left font-normal shadow-none"
         >
           <span className="flex min-w-0 items-center gap-2">
             {current ? <AccentDot accent={current.colorAccent} /> : null}

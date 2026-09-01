@@ -51,13 +51,13 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="hidden w-[16.5rem] shrink-0 flex-col border-r border-border bg-sidebar md:flex">
+      <aside className="hidden w-[16.5rem] shrink-0 flex-col border-r border-black/[0.04] bg-sidebar md:flex">
         <div className="flex h-full flex-col px-4 py-5">
           {profile ? (
             <div className="flex items-center gap-3 px-1">
               <span
                 aria-hidden
-                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-workspace-soft font-heading text-sm font-semibold text-workspace-on-soft"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-muted font-heading text-sm font-semibold ring-2 ring-workspace-accent/35 ring-offset-2 ring-offset-sidebar"
               >
                 {initial}
               </span>
@@ -80,7 +80,7 @@ export function AppShell({
 
           <Button
             asChild
-            className="mt-4 h-11 w-full justify-center rounded-xl text-[0.9375rem]"
+            className="mt-4 h-11 w-full justify-center px-4 text-[0.9375rem]"
           >
             <Link href={`${projectsHref}#nytt`}>
               <Plus />
@@ -100,7 +100,7 @@ export function AppShell({
             <button
               type="button"
               onClick={() => setOpen(true)}
-              className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-workspace-wash hover:text-foreground [&_svg]:size-4"
+              className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-4"
             >
               <MessageSquare />
               Chat
@@ -115,7 +115,7 @@ export function AppShell({
             <Button
               type="submit"
               variant="ghost"
-              className="w-full justify-start rounded-xl text-muted-foreground"
+              className="w-full justify-start text-muted-foreground"
             >
               <LogOut />
               Logg ut
@@ -125,7 +125,7 @@ export function AppShell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-3 md:hidden">
+        <header className="flex items-center justify-between gap-3 border-b border-black/[0.04] bg-card px-4 py-3 md:hidden">
           <WorkspaceSwitcher currentSlug={slug} workspaces={workspaces} />
           <form action={signOut}>
             <Button type="submit" variant="ghost" size="sm">
@@ -134,11 +134,11 @@ export function AppShell({
           </form>
         </header>
         {runningTimer ? (
-          <div className="border-b border-border bg-card px-3 py-2 md:hidden">
+          <div className="border-b border-black/[0.04] bg-card px-3 py-2 md:hidden">
             <RunningTimerStamp slug={slug} timer={runningTimer} />
           </div>
         ) : null}
-        <nav className="flex gap-1 overflow-x-auto border-b border-border bg-card px-3 py-2 md:hidden">
+        <nav className="flex gap-1 overflow-x-auto border-b border-black/[0.04] bg-card px-3 py-2 md:hidden">
           <MobileNavLink href={dashboardHref} active={onDashboard}>
             Dashboard
           </MobileNavLink>
@@ -150,7 +150,7 @@ export function AppShell({
           </MobileNavLink>
         </nav>
 
-        <header className="hidden h-[3.75rem] items-center justify-between gap-4 border-b border-border bg-card px-8 md:flex">
+        <header className="hidden h-[3.75rem] items-center justify-between gap-4 border-b border-black/[0.04] bg-card px-8 md:flex">
           <p className="text-sm text-muted-foreground">
             <span className="font-medium text-foreground">Øen</span>
             {crumbs.map((crumb) => (
@@ -220,8 +220,8 @@ function NavLink({
       className={cn(
         "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-colors [&_svg]:size-4",
         active
-          ? "bg-workspace-soft font-medium text-workspace-on-soft"
-          : "text-muted-foreground hover:bg-workspace-wash hover:text-foreground"
+          ? "bg-muted font-medium text-foreground"
+          : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
       )}
     >
       {children}
@@ -245,7 +245,7 @@ function MobileNavLink({
       className={cn(
         "rounded-full px-3 py-1.5 text-sm whitespace-nowrap",
         active
-          ? "bg-workspace-soft font-medium text-workspace-on-soft"
+          ? "bg-muted font-medium text-foreground"
           : "text-muted-foreground"
       )}
     >

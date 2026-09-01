@@ -12,7 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { PageFrame, PageHeader } from "@/components/page-frame";
 import { ProgressBar } from "@/components/progress-bar";
 import { PriorityBadge, TaskStatusBadge } from "@/components/status-badge";
-import { Surface } from "@/components/surface";
+import { Surface, surfaceClass } from "@/components/surface";
 import { Button } from "@/components/ui/button";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
 import {
@@ -134,7 +134,7 @@ export default async function WorkspaceDashboardPage({
         title="Dashboard"
         description={`Oversikt for ${workspace.name}.`}
         actions={
-          <Button asChild className="rounded-xl">
+          <Button asChild>
             <Link href={`/w/${slug}/projects#nytt`}>Nytt prosjekt</Link>
           </Button>
         }
@@ -178,7 +178,7 @@ export default async function WorkspaceDashboardPage({
                 <li key={task.id}>
                   <Link
                     href={`/w/${slug}/projects/${task.project_id}`}
-                    className="flex flex-col gap-3 rounded-xl border border-border bg-workspace-wash/60 p-4"
+                    className="flex flex-col gap-3 rounded-xl bg-muted/50 p-4"
                   >
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="font-heading text-sm font-semibold">
@@ -241,7 +241,7 @@ export default async function WorkspaceDashboardPage({
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-heading text-section">Aktive prosjekter</h2>
-          <Button asChild variant="outline" size="sm" className="rounded-xl">
+          <Button asChild variant="outline" size="sm">
             <Link href={`/w/${slug}/projects`}>Alle prosjekter</Link>
           </Button>
         </div>
@@ -250,7 +250,7 @@ export default async function WorkspaceDashboardPage({
             title="Ingen prosjekter ennå"
             description="Opprett det første prosjektet for å fylle dashbordet."
           >
-            <Button asChild className="rounded-xl">
+            <Button asChild>
               <Link href={`/w/${slug}/projects#nytt`}>Nytt prosjekt</Link>
             </Button>
           </EmptyState>
@@ -260,11 +260,14 @@ export default async function WorkspaceDashboardPage({
               <li key={project.id}>
                 <Link
                   href={`/w/${slug}/projects/${project.id}`}
-                  className="group flex h-full flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(26,35,48,0.04)]"
+                  className={cn(
+                    surfaceClass,
+                    "group flex h-full flex-col gap-4 p-5"
+                  )}
                 >
                   <div className="flex items-start gap-3">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-workspace-soft text-workspace-on-soft">
-                      <FolderKanban className="size-4" />
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                      <FolderKanban className="size-4 text-workspace-accent" />
                     </span>
                     <h3 className="font-heading text-section">{project.name}</h3>
                   </div>
@@ -294,7 +297,7 @@ function StatCard({
     <Surface className="px-4 py-5">
       <div className="flex items-center justify-between gap-3">
         <p className="text-label text-muted-foreground">{label}</p>
-        <span className="flex size-8 items-center justify-center rounded-lg bg-workspace-soft text-workspace-on-soft">
+        <span className="flex size-8 items-center justify-center rounded-lg bg-muted text-workspace-accent">
           {icon}
         </span>
       </div>

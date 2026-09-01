@@ -5,12 +5,13 @@ import { createProject } from "@/app/w/[workspace]/projects/actions";
 import { EmptyState } from "@/components/empty-state";
 import { PageFrame, PageHeader } from "@/components/page-frame";
 import { ProjectStatusBadge } from "@/components/status-badge";
-import { Surface } from "@/components/surface";
+import { Surface, surfaceClass } from "@/components/surface";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
 import { formatDateNb } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 type ProjectRow = {
   id: string;
@@ -66,7 +67,7 @@ export default async function ProjectsPage({
               className="h-10"
             />
           </div>
-          <Button type="submit" className="h-10 rounded-xl">
+          <Button type="submit" className="h-10">
             Opprett
           </Button>
         </form>
@@ -83,12 +84,12 @@ export default async function ProjectsPage({
             <li key={project.id}>
               <Link
                 href={`/w/${slug}/projects/${project.id}`}
-                className="group flex h-full flex-col gap-4 rounded-2xl border border-border bg-card p-5 shadow-[0_1px_2px_rgba(26,35,48,0.04)]"
+                className={cn(surfaceClass, "group flex h-full flex-col gap-4 p-5")}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-workspace-soft text-workspace-on-soft">
-                      <FolderKanban className="size-4" />
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                      <FolderKanban className="size-4 text-workspace-accent" />
                     </span>
                     <h2 className="font-heading text-section text-foreground">
                       {project.name}

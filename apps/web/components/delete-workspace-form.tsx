@@ -51,7 +51,6 @@ export function DeleteWorkspaceForm({
       <Button
         type="submit"
         variant="destructive"
-        className="rounded-xl"
         disabled={!matches}
       >
         Slett workspace

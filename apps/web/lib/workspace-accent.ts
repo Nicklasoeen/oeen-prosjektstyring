@@ -155,14 +155,8 @@ export function workspaceThemeCssVars(
     "--workspace-on-soft": theme.onSoft,
     "--workspace-wash": theme.wash,
     "--workspace-border": theme.border,
-    "--primary": theme.solid,
-    "--primary-foreground": theme.onSolid,
-    "--ring": theme.solid,
-    "--sidebar-primary": theme.solid,
-    "--sidebar-accent": theme.soft,
-    "--sidebar-accent-foreground": theme.onSoft,
-    "--sidebar": `color-mix(in srgb, ${theme.wash} 72%, white)`,
-    "--background": `color-mix(in srgb, ${theme.wash} 58%, #EEF1F4)`,
+    "--chart-1": theme.solid,
+    "--chart-2": theme.mid,
   } as CSSProperties;
 }
 

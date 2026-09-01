@@ -19,7 +19,8 @@ export function ThemePicker({
     <fieldset className="space-y-3" disabled={disabled}>
       <legend className="text-sm font-medium">Tema</legend>
       <p className="text-sm text-muted-foreground">
-        Hvert tema er en palett — knapper, merker og bakgrunn følger samme toner.
+        Temaet farger fremdrift, merker og små detaljer. Knapper og bakgrunn
+        holder seg nøytrale.
       </p>
       <div className="grid grid-cols-2 gap-2">
         {WORKSPACE_THEMES.map((option) => {
@@ -32,7 +33,7 @@ export function ThemePicker({
                 disabled ? "cursor-not-allowed opacity-70" : "cursor-pointer",
                 selected
                   ? "border-transparent"
-                  : "border-border hover:border-[var(--workspace-border)]"
+                  : "border-border hover:border-foreground/15"
               )}
               style={
                 selected

@@ -35,7 +35,7 @@ export function RunningTimerStamp({
     <form
       action={stopRunningTimer}
       className={cn(
-        "flex min-w-0 items-center gap-2 rounded-full bg-workspace-soft px-3 py-1.5 text-workspace-on-soft",
+        "flex min-w-0 items-center gap-2 rounded-full bg-muted px-3 py-1.5 text-foreground",
         className
       )}
     >
@@ -73,7 +73,7 @@ export function RunningTimerStamp({
         type="submit"
         variant="ghost"
         size="sm"
-        className="h-7 shrink-0 rounded-full text-workspace-on-soft hover:bg-white/50"
+        className="h-7 shrink-0 rounded-full"
       >
         Stopp
       </Button>
