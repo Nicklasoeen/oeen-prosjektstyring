@@ -4,7 +4,6 @@ export type WorkspaceSummary = {
   id: string;
   slug: string;
   name: string;
-  type: "student" | "enk" | "job";
   colorAccent: string | null;
   role: "owner" | "member" | "viewer";
 };
@@ -13,7 +12,6 @@ type WorkspaceRow = {
   id: string;
   slug: string;
   name: string;
-  type: WorkspaceSummary["type"];
   color_accent: string | null;
 };
 
@@ -30,7 +28,7 @@ export async function findMembershipForSlug(
 ): Promise<WorkspaceSummary | null> {
   const { data: workspace, error: workspaceError } = await supabase
     .from("workspaces")
-    .select("id, slug, name, type, color_accent")
+    .select("id, slug, name, color_accent")
     .eq("slug", slug)
     .maybeSingle<WorkspaceRow>();
 
@@ -53,7 +51,6 @@ export async function findMembershipForSlug(
     id: workspace.id,
     slug: workspace.slug,
     name: workspace.name,
-    type: workspace.type,
     colorAccent: workspace.color_accent,
     role: membership.role,
   };
@@ -76,7 +73,7 @@ export async function listWorkspacesForUser(
   const workspaceIds = memberships.map((row) => row.workspace_id);
   const { data: workspaces, error: workspaceError } = await supabase
     .from("workspaces")
-    .select("id, slug, name, type, color_accent")
+    .select("id, slug, name, color_accent")
     .in("id", workspaceIds)
     .returns<WorkspaceRow[]>();
 
@@ -92,7 +89,6 @@ export async function listWorkspacesForUser(
     id: workspace.id,
     slug: workspace.slug,
     name: workspace.name,
-    type: workspace.type,
     colorAccent: workspace.color_accent,
     role: roleByWorkspaceId.get(workspace.id) ?? "viewer",
   }));

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 
 import { getAuthUserId } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { isWorkspaceAccent, isWorkspaceType } from "@/lib/workspace-accent";
+import { isWorkspaceAccent } from "@/lib/workspace-accent";
 
 function slugFromName(name: string) {
   const base = name
@@ -25,10 +25,9 @@ export async function createWorkspace(formData: FormData) {
   }
 
   const name = String(formData.get("name") ?? "").trim();
-  const typeValue = String(formData.get("type") ?? "");
   const colorAccent = String(formData.get("color_accent") ?? "").toUpperCase();
 
-  if (!name || !isWorkspaceType(typeValue) || !isWorkspaceAccent(colorAccent)) {
+  if (!name || !isWorkspaceAccent(colorAccent)) {
     redirect("/w/new?error=invalid");
   }
 
@@ -43,7 +42,6 @@ export async function createWorkspace(formData: FormData) {
   // see the owner row that on_workspace_created writes in the same statement.
   const { error } = await supabase.from("workspaces").insert({
     name,
-    type: typeValue,
     slug,
     color_accent: colorAccent,
   });

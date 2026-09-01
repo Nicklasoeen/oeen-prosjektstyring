@@ -1,11 +1,3 @@
-export type WorkspaceType = "student" | "enk" | "job";
-
-const WORKSPACE_TYPES = ["student", "enk", "job"] as const;
-
-export function isWorkspaceType(value: string): value is WorkspaceType {
-  return (WORKSPACE_TYPES as readonly string[]).includes(value);
-}
-
 const HEX = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 export const WORKSPACE_ACCENT_OPTIONS = [
@@ -23,25 +15,18 @@ const ACCENT_HEXES = new Set<string>(
   WORKSPACE_ACCENT_OPTIONS.map((option) => option.hex)
 );
 
-const FALLBACK_BY_TYPE: Record<WorkspaceType, WorkspaceAccentHex> = {
-  student: "#2F6F62",
-  enk: "#B56A32",
-  job: "#2C4A6E",
-};
-
-export function defaultAccentForType(type: WorkspaceType): WorkspaceAccentHex {
-  return FALLBACK_BY_TYPE[type];
-}
+export const DEFAULT_WORKSPACE_ACCENT: WorkspaceAccentHex =
+  WORKSPACE_ACCENT_OPTIONS[0].hex;
 
 export function isWorkspaceAccent(value: string): value is WorkspaceAccentHex {
   return ACCENT_HEXES.has(value.toUpperCase());
 }
 
 export function resolveWorkspaceAccent(
-  stored: string | null | undefined,
-  type: WorkspaceType
+  stored: string | null | undefined
 ): { hex: string; foreground: string } {
-  const hex = stored && HEX.test(stored) ? normalizeHex(stored) : FALLBACK_BY_TYPE[type];
+  const hex =
+    stored && HEX.test(stored) ? normalizeHex(stored) : DEFAULT_WORKSPACE_ACCENT;
   return { hex, foreground: contrastForeground(hex) };
 }
 

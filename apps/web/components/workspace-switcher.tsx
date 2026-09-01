@@ -16,12 +16,6 @@ import {
 import type { WorkspaceSummary } from "@/lib/auth/workspace-access";
 import { cn } from "@/lib/utils";
 
-const TYPE_LABEL: Record<WorkspaceSummary["type"], string> = {
-  student: "Student",
-  enk: "ENK",
-  job: "Jobb",
-};
-
 export function WorkspaceSwitcher({
   workspaces,
   currentSlug,
@@ -43,9 +37,7 @@ export function WorkspaceSwitcher({
           className="h-auto w-full justify-between gap-2 px-3 py-2 text-left font-normal"
         >
           <span className="flex min-w-0 items-center gap-2">
-            {current ? (
-              <AccentDot accent={current.colorAccent} type={current.type} />
-            ) : null}
+            {current ? <AccentDot accent={current.colorAccent} /> : null}
             <span className="min-w-0 truncate text-sm font-medium">
               {current?.name ?? "Workspace"}
             </span>
@@ -60,27 +52,18 @@ export function WorkspaceSwitcher({
           return (
             <DropdownMenuItem
               key={workspace.id}
-              className="items-start py-2"
+              className="py-2"
               onSelect={() => {
                 router.push(`/w/${workspace.slug}/dashboard`);
               }}
             >
-              <AccentDot
-                accent={workspace.colorAccent}
-                type={workspace.type}
-                className="mt-1"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-medium">
-                  {workspace.name}
-                </span>
-                <span className="block text-xs text-muted-foreground">
-                  {TYPE_LABEL[workspace.type]}
-                </span>
+              <AccentDot accent={workspace.colorAccent} />
+              <span className="min-w-0 flex-1 truncate font-medium">
+                {workspace.name}
               </span>
               <Check
                 className={cn(
-                  "mt-0.5 size-3.5 text-[var(--workspace-accent)]",
+                  "size-3.5 text-[var(--workspace-accent)]",
                   active ? "opacity-100" : "opacity-0"
                 )}
               />

@@ -36,6 +36,13 @@
       "when": 1788265500000,
       "tag": "0004_workspace_member_check_volatile",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788267000000,
+      "tag": "0005_drop_workspace_type",
+      "breakpoints": true
     }
   ]
 }

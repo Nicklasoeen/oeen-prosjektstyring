@@ -1,18 +1,15 @@
 import type { CSSProperties, ReactNode } from "react";
 
-import type { WorkspaceType } from "@/lib/workspace-accent";
 import { resolveWorkspaceAccent } from "@/lib/workspace-accent";
 
 export function WorkspaceTheme({
   accent,
-  type,
   children,
 }: {
   accent: string | null;
-  type: WorkspaceType;
   children: ReactNode;
 }) {
-  const resolved = resolveWorkspaceAccent(accent, type);
+  const resolved = resolveWorkspaceAccent(accent);
 
   return (
     <div

@@ -1,19 +1,14 @@
 import { cn } from "@/lib/utils";
-import {
-  resolveWorkspaceAccent,
-  type WorkspaceType,
-} from "@/lib/workspace-accent";
+import { resolveWorkspaceAccent } from "@/lib/workspace-accent";
 
 export function AccentDot({
   accent,
-  type,
   className,
 }: {
   accent: string | null;
-  type: WorkspaceType;
   className?: string;
 }) {
-  const { hex } = resolveWorkspaceAccent(accent, type);
+  const { hex } = resolveWorkspaceAccent(accent);
 
   return (
     <span

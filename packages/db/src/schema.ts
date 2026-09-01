@@ -20,12 +20,6 @@ import { authenticatedRole, authUid, authUsers } from "drizzle-orm/supabase";
 
 export const privateSchema = pgSchema("private");
 
-export const workspaceTypeEnum = pgEnum("workspace_type", [
-  "student",
-  "enk",
-  "job",
-]);
-
 export const workspaceRoleEnum = pgEnum("workspace_role", [
   "owner",
   "member",
@@ -93,7 +87,6 @@ export const workspaces = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
-    type: workspaceTypeEnum("type").notNull(),
     slug: text("slug").notNull(),
     colorAccent: text("color_accent"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })

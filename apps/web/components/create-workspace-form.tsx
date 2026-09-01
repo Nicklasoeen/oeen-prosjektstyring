@@ -8,24 +8,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import {
-  defaultAccentForType,
-  isWorkspaceType,
+  DEFAULT_WORKSPACE_ACCENT,
   resolveWorkspaceAccent,
   WORKSPACE_ACCENT_OPTIONS,
-  type WorkspaceType,
 } from "@/lib/workspace-accent";
 
-const TYPE_OPTIONS: Array<{ value: WorkspaceType; label: string }> = [
-  { value: "student", label: "Student" },
-  { value: "enk", label: "ENK" },
-  { value: "job", label: "Jobb" },
-];
-
 export function CreateWorkspaceForm({ error }: { error?: string }) {
-  const [type, setType] = useState<WorkspaceType>("student");
-  const [accent, setAccent] = useState(defaultAccentForType("student"));
-  const [accentTouched, setAccentTouched] = useState(false);
-  const resolved = resolveWorkspaceAccent(accent, type);
+  const [accent, setAccent] = useState(DEFAULT_WORKSPACE_ACCENT);
+  const resolved = resolveWorkspaceAccent(accent);
 
   return (
     <form
@@ -46,35 +36,9 @@ export function CreateWorkspaceForm({ error }: { error?: string }) {
           id="name"
           name="name"
           required
-          placeholder="F.eks. Student, ENK, Jobb"
+          placeholder="F.eks. Jobb"
           className="h-9"
         />
-      </div>
-      <div className="space-y-2">
-        <Label htmlFor="type">Type</Label>
-        <select
-          id="type"
-          name="type"
-          required
-          value={type}
-          onChange={(event) => {
-            const next = event.target.value;
-            if (!isWorkspaceType(next)) {
-              return;
-            }
-            setType(next);
-            if (!accentTouched) {
-              setAccent(defaultAccentForType(next));
-            }
-          }}
-          className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm"
-        >
-          {TYPE_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
       </div>
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Farge</legend>
@@ -96,7 +60,6 @@ export function CreateWorkspaceForm({ error }: { error?: string }) {
                   value={option.hex}
                   checked={selected}
                   onChange={() => {
-                    setAccentTouched(true);
                     setAccent(option.hex);
                   }}
                   className="sr-only"
@@ -117,9 +80,7 @@ export function CreateWorkspaceForm({ error }: { error?: string }) {
       </fieldset>
       {error ? (
         <p className="text-sm text-destructive">
-          {error === "invalid"
-            ? "Fyll inn navn, type og farge."
-            : error}
+          {error === "invalid" ? "Fyll inn navn og velg farge." : error}
         </p>
       ) : null}
       <Button type="submit" className="w-full">

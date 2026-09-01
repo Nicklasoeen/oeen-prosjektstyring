@@ -33,7 +33,7 @@ export default async function WorkspaceLayout({
   const workspaces = await listWorkspacesForUser(supabase, userId);
 
   return (
-    <WorkspaceTheme accent={membership.colorAccent} type={membership.type}>
+    <WorkspaceTheme accent={membership.colorAccent}>
       <AppShell slug={slug} workspaces={workspaces}>
         {children}
       </AppShell>

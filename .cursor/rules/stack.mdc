@@ -21,8 +21,8 @@ alwaysApply: true
 
 - Everything is scoped to a `workspace_id`: workspaces → workspace_members
   (role: owner/member/viewer) → projects → tasks → time_entries
-- A user can belong to multiple workspaces (e.g. student / enk / job —
-  fully separate contexts, not just a filter on the same data)
+- A user can belong to multiple workspaces (fully separate contexts,
+  not just a filter on the same data)
 - chat_threads, chat_messages, notifications, integrations, and
   pending_actions are also scoped to workspace_id
 - pending_actions represents AI-proposed write actions (e.g. "reply to
