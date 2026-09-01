@@ -231,6 +231,7 @@ export default async function ProjectDetailPage({
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,0.6fr)]">
           <Surface className="p-5">
             <ProjectNotes
+              key={project.id}
               slug={slug}
               projectId={project.id}
               notes={project.notes ?? ""}

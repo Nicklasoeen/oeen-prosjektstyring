@@ -20,32 +20,41 @@ export function ProjectNotes({
   const [status, setStatus] = useState<"idle" | "saving" | "saved">("idle");
   const [pending, startTransition] = useTransition();
   const lastSaved = useRef(notes);
+  const timerRef = useRef<number | null>(null);
 
   useEffect(() => {
-    setValue(notes);
-    lastSaved.current = notes;
-  }, [notes]);
+    return () => {
+      if (timerRef.current !== null) {
+        window.clearTimeout(timerRef.current);
+      }
+    };
+  }, []);
 
-  useEffect(() => {
-    if (!canEdit || value === lastSaved.current) {
+  function handleChange(next: string) {
+    setValue(next);
+    setStatus("idle");
+    if (!canEdit) {
       return;
     }
-    const timer = window.setTimeout(() => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+    }
+    timerRef.current = window.setTimeout(() => {
+      if (next === lastSaved.current) {
+        return;
+      }
       const formData = new FormData();
       formData.set("workspace_slug", slug);
       formData.set("project_id", projectId);
-      formData.set("notes", value);
+      formData.set("notes", next);
       setStatus("saving");
       startTransition(async () => {
         await updateProjectNotes(formData);
-        lastSaved.current = value;
+        lastSaved.current = next;
         setStatus("saved");
       });
     }, 800);
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [canEdit, projectId, slug, value]);
+  }
 
   return (
     <div className="space-y-2">
@@ -62,8 +71,7 @@ export function ProjectNotes({
       <Textarea
         value={value}
         onChange={(event) => {
-          setValue(event.target.value);
-          setStatus("idle");
+          handleChange(event.target.value);
         }}
         disabled={!canEdit}
         placeholder="Scratchpad for prosjektet — fritekst, lenker, det du trenger å huske."
