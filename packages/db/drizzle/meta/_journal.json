@@ -29,6 +29,13 @@
       "when": 1788264200580,
       "tag": "0003_projects_and_tasks",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1788265500000,
+      "tag": "0004_workspace_member_check_volatile",
+      "breakpoints": true
     }
   ]
 }

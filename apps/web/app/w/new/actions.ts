@@ -39,22 +39,23 @@ export async function createWorkspace(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const slug = slugFromName(name);
-  const { data, error } = await supabase
-    .from("workspaces")
-    .insert({
-      name,
-      type: typeValue,
-      slug,
-    })
-    .select("slug")
-    .maybeSingle<{ slug: string }>();
-
-  if (error || !data) {
-    redirect(
-      `/w/new?error=${encodeURIComponent(error?.message ?? "unknown")}`
-    );
+  const { error: claimsError } = await supabase.auth.getClaims();
+  if (claimsError) {
+    redirect("/login?next=/w/new");
   }
 
-  redirect(`/w/${data.slug}/dashboard`);
+  const slug = slugFromName(name);
+  // Do not use INSERT ... RETURNING here: SELECT RLS is STABLE and cannot
+  // see the owner row that on_workspace_created writes in the same statement.
+  const { error } = await supabase.from("workspaces").insert({
+    name,
+    type: typeValue,
+    slug,
+  });
+
+  if (error) {
+    redirect(`/w/new?error=${encodeURIComponent(error.message)}`);
+  }
+
+  redirect(`/w/${slug}/dashboard`);
 }
