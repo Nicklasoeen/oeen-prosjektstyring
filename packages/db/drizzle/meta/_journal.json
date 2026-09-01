@@ -64,6 +64,13 @@
       "when": 1788270000000,
       "tag": "0008_workspace_role_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1788278400000,
+      "tag": "0009_project_detail_fields",
+      "breakpoints": true
     }
   ]
 }

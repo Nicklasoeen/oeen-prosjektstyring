@@ -74,3 +74,19 @@ export function formatElapsedClock(
   const seconds = totalSeconds % 60;
   return `${hours}t ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
 }
+
+export function formatLoggedDuration(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours === 0 && minutes === 0) {
+    return "0 t";
+  }
+  if (hours === 0) {
+    return `${minutes} min`;
+  }
+  if (minutes === 0) {
+    return `${hours} t`;
+  }
+  return `${hours} t ${minutes} min`;
+}

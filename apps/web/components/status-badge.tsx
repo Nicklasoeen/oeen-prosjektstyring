@@ -31,9 +31,13 @@ const TASK_STATUS = {
     label: "Åpen",
     className: "bg-muted text-muted-foreground",
   },
-  doing: {
+  in_progress: {
     label: "Pågår",
     className: "bg-[#E4EEF6] text-[#2C4A6E]",
+  },
+  in_review: {
+    label: "Til gjennomgang",
+    className: "bg-[#EBE0EE] text-[#3F2C44]",
   },
   done: {
     label: "Ferdig",

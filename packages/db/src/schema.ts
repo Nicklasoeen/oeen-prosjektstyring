@@ -32,7 +32,19 @@ export const projectStatusEnum = pgEnum("project_status", [
   "archived",
 ]);
 
-export const taskStatusEnum = pgEnum("task_status", ["todo", "doing", "done"]);
+export const projectTypeEnum = pgEnum("project_type", [
+  "custom_website",
+  "landing_page",
+  "graphic",
+  "other",
+]);
+
+export const taskStatusEnum = pgEnum("task_status", [
+  "todo",
+  "in_progress",
+  "in_review",
+  "done",
+]);
 
 export const taskPriorityEnum = pgEnum("task_priority", [
   "low",
@@ -186,6 +198,12 @@ export const projects = pgTable(
     workspaceId: uuid("workspace_id").notNull(),
     name: text("name").notNull(),
     status: projectStatusEnum("status").notNull().default("active"),
+    type: projectTypeEnum("type").notNull().default("other"),
+    domain: text("domain"),
+    productionDomain: text("production_domain"),
+    contactName: text("contact_name"),
+    contactEmail: text("contact_email"),
+    notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),
@@ -230,6 +248,7 @@ export const tasks = pgTable(
     projectId: uuid("project_id").notNull(),
     title: text("title").notNull(),
     status: taskStatusEnum("status").notNull().default("todo"),
+    section: text("section"),
     priority: taskPriorityEnum("priority").notNull().default("medium"),
     progress: integer("progress").notNull().default(0),
     dueDate: date("due_date", { mode: "string" }),
@@ -240,6 +259,7 @@ export const tasks = pgTable(
   (table) => [
     uniqueIndex("tasks_id_workspace_id_idx").on(table.id, table.workspaceId),
     index("tasks_project_id_idx").on(table.projectId),
+    index("tasks_project_id_status_idx").on(table.projectId, table.status),
     index("tasks_workspace_id_idx").on(table.workspaceId),
     check(
       "tasks_progress_range",

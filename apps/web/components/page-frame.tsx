@@ -5,14 +5,17 @@ import { cn } from "@/lib/utils";
 export function PageFrame({
   children,
   className,
+  wide = false,
 }: {
   children: ReactNode;
   className?: string;
+  wide?: boolean;
 }) {
   return (
     <main
       className={cn(
-        "mx-auto flex w-full max-w-6xl flex-col gap-7 px-5 py-7 md:px-8",
+        "mx-auto flex w-full flex-col gap-7 px-5 py-7 md:px-8",
+        wide ? "max-w-[88rem]" : "max-w-6xl",
         className
       )}
     >

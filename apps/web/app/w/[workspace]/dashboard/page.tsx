@@ -32,7 +32,7 @@ type TaskRow = {
   id: string;
   project_id: string;
   title: string;
-  status: "todo" | "doing" | "done";
+  status: "todo" | "in_progress" | "in_review" | "done";
   priority: "low" | "medium" | "urgent";
   progress: number;
   due_date: string | null;
@@ -105,7 +105,7 @@ export default async function WorkspaceDashboardPage({
   const today = todayInOslo();
 
   const activeProjects = projects.filter((project) => project.status === "active");
-  const inProgress = tasks.filter((task) => task.status === "doing").length;
+  const inProgress = tasks.filter((task) => task.status === "in_progress").length;
   const completed = tasks.filter((task) => task.status === "done").length;
   const dueToday = tasks.filter(
     (task) =>
