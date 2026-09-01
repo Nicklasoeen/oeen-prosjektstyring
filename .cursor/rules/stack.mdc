@@ -1,0 +1,42 @@
+---
+description: Core stack and architecture for this project
+alwaysApply: true
+---
+
+# Stack
+
+- Monorepo: Turborepo + Bun
+- apps/web: Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- packages/db: Drizzle ORM schema, Supabase Postgres
+- packages/mcp-orchestrator: MCP client wiring for Claude tool use
+- Auth: Supabase Auth (magic link, no passwords)
+- Storage: Supabase Storage
+- Hosting: Vercel
+- AI: Anthropic Claude API. BYOK per user — each user stores their own
+  encrypted Anthropic API key. Never use Claude.ai subscription/OAuth
+  tokens for this; that is not permitted by Anthropic outside Claude Code
+  and Claude.ai itself.
+
+# Core domain model
+
+- Everything is scoped to a `workspace_id`: workspaces → workspace_members
+  (role: owner/member/viewer) → projects → tasks → time_entries
+- A user can belong to multiple workspaces (e.g. student / enk / job —
+  fully separate contexts, not just a filter on the same data)
+- chat_threads, chat_messages, notifications, integrations, and
+  pending_actions are also scoped to workspace_id
+- pending_actions represents AI-proposed write actions (e.g. "reply to
+  customer", "update project status") that require explicit user
+  confirmation before execution — never execute a write action from the
+  AI chat without going through this table first
+
+# Conventions
+
+- TypeScript strict mode, no `any`
+- Server Actions / API routes for all mutations — never write to Supabase
+  directly from client components
+- Prefer the Drizzle query builder over raw SQL, except where a Row Level
+  Security policy requires SQL directly in a migration
+- Log every mutation to `activity_log` (workspace_id, user_id,
+  entity_type, entity_id, action, created_at) — this doubles as the
+  Activity feed and the audit trail for AI-initiated actions

@@ -1,0 +1,35 @@
+---
+description: Multi-tenant workspace isolation rules — non-negotiable data access boundary
+globs: apps/web/app/api/**,apps/web/app/w/**,packages/db/**
+alwaysApply: false
+---
+
+# Workspace isolation
+
+This project holds data for multiple separate contexts (workspaces) for
+the same user, and later for multiple users per workspace. A bug here
+means one workspace's data (e.g. job-related client data) leaking into
+another (e.g. a student or ENK context) — treat this as a security
+boundary, not a UX detail.
+
+- Every table storing workspace-scoped data MUST have a `workspace_id`
+  column and a Supabase Row Level Security policy restricting rows to
+  workspaces the requesting `auth.uid()` is a member of, via
+  `workspace_members`.
+- Every API route or Server Action that reads or writes workspace-scoped
+  data MUST re-verify the current user's membership in that workspace
+  server-side. Never trust a `workspace_id` or workspace slug taken
+  directly from a URL param, request body, or client-sent state without
+  checking `workspace_members` against the authenticated user.
+- When adding a new table, write its RLS policy in the same migration as
+  the table itself — not as a follow-up task.
+- When adding a new route under `apps/web/app/api/**` or a new page under
+  `apps/web/app/w/[workspace]/**`, the first thing the handler does is
+  resolve and verify workspace membership before touching any other data.
+- If a query ever uses the Supabase service role key (which bypasses
+  RLS), the membership check must happen in application code instead —
+  do not assume RLS is protecting that query.
+- Changes to files matching this rule should be validated with a second
+  test account / second workspace to confirm no cross-workspace data is
+  returned, not just tested against the one workspace you're actively
+  working in.
