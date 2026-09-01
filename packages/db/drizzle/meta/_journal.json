@@ -15,6 +15,13 @@
       "when": 1788253040519,
       "tag": "0001_auth_sync_and_member_insert",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788255148710,
+      "tag": "0002_workspace_slug",
+      "breakpoints": true
     }
   ]
 }

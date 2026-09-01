@@ -1,6 +1,20 @@
-import { Button } from "@/components/ui/button";
+import Link from "next/link";
+import { redirect } from "next/navigation";
 
-export default function Home() {
+import { Button } from "@/components/ui/button";
+import { getOrCreateDefaultWorkspace } from "@/lib/auth/workspace-access";
+import { getAuthUserId } from "@/lib/auth/session";
+import { createClient } from "@/lib/supabase/server";
+
+export default async function Home() {
+  const userId = await getAuthUserId();
+
+  if (userId) {
+    const supabase = await createClient();
+    const slug = await getOrCreateDefaultWorkspace(supabase, userId);
+    redirect(`/w/${slug}/dashboard`);
+  }
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-6 p-6">
       <div className="flex max-w-md flex-col items-center gap-2 text-center">
@@ -8,10 +22,12 @@ export default function Home() {
           Øen prosjektstyring
         </h1>
         <p className="text-sm text-muted-foreground">
-          Next.js 15, Tailwind CSS, and shadcn/ui.
+          Logg inn med magisk lenke. Ingen passord.
         </p>
       </div>
-      <Button type="button">Get started</Button>
+      <Button asChild>
+        <Link href="/login">Logg inn</Link>
+      </Button>
     </main>
   );
 }

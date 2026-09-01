@@ -77,12 +77,14 @@ export const workspaces = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     name: text("name").notNull(),
     type: workspaceTypeEnum("type").notNull(),
+    slug: text("slug").notNull(),
     colorAccent: text("color_accent"),
     createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
       .defaultNow()
       .notNull(),
   },
   (table) => [
+    uniqueIndex("workspaces_slug_idx").on(table.slug),
     pgPolicy("workspaces_select_members", {
       for: "select",
       to: authenticatedRole,
