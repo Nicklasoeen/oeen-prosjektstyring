@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import {
   ArrowUpRight,
   CalendarCheck2,
@@ -85,6 +86,7 @@ export default async function WorkspaceDashboardPage({
     `/w/${slug}/dashboard`
   );
 
+  const now = await requestClock();
   const today = todayInOslo();
   const dayStart = osloStartOfDay(today);
 
@@ -220,8 +222,8 @@ export default async function WorkspaceDashboardPage({
   return (
     <PageFrame>
       <PageHeader
-        title={firstName ? `${greetingNb()}, ${firstName}` : "Dashboard"}
-        description={`${formatFullDateNb()} · ${workspace.name}`}
+        title={firstName ? `${greetingNb(now)}, ${firstName}` : "Dashboard"}
+        description={`${formatFullDateNb(now)} · ${workspace.name}`}
       />
 
       <DashboardQuickActions
@@ -272,7 +274,7 @@ export default async function WorkspaceDashboardPage({
       <DayTimeline
         entries={timelineEntries}
         dayStartMs={dayStart.getTime()}
-        nowMs={Date.now()}
+        nowMs={now.getTime()}
       />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
@@ -520,8 +522,13 @@ function StatCard({
   );
 }
 
-function greetingNb(): string {
-  const hour = osloHourNow();
+async function requestClock(): Promise<Date> {
+  await connection();
+  return new Date();
+}
+
+function greetingNb(now: Date): string {
+  const hour = osloHourNow(now);
   if (hour >= 5 && hour < 10) {
     return "God morgen";
   }
