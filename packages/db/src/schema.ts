@@ -6,6 +6,7 @@ import {
   foreignKey,
   index,
   integer,
+  jsonb,
   pgEnum,
   pgPolicy,
   pgSchema,
@@ -368,6 +369,236 @@ export const timeEntries = pgTable(
       for: "delete",
       to: authenticatedRole,
       using: sql`${isWorkspaceMember(table.workspaceId)} and ${table.userId} = ${authUid}`,
+    }),
+  ]
+);
+
+export const activityLog = pgTable(
+  "activity_log",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    entityType: text("entity_type").notNull(),
+    entityId: uuid("entity_id").notNull(),
+    action: text("action").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("activity_log_workspace_id_created_at_idx").on(
+      table.workspaceId,
+      table.createdAt
+    ),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspaces.id],
+      name: "activity_log_workspace_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "activity_log_user_id_fk",
+    }).onDelete("cascade"),
+    pgPolicy("activity_log_select_members", {
+      for: "select",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+    }),
+    pgPolicy("activity_log_insert_members", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: sql`${isWorkspaceMember(table.workspaceId)} and ${table.userId} = ${authUid}`,
+    }),
+  ]
+);
+
+export const credentialProviderEnum = pgEnum("credential_provider", [
+  "anthropic",
+]);
+
+export const userCredentials = pgTable(
+  "user_credentials",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull(),
+    provider: credentialProviderEnum("provider").notNull(),
+    encryptedKey: text("encrypted_key").notNull(),
+    keyLast4: text("key_last4").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("user_credentials_user_id_provider_idx").on(
+      table.userId,
+      table.provider
+    ),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "user_credentials_user_id_fk",
+    }).onDelete("cascade"),
+    pgPolicy("user_credentials_select_own", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`${table.userId} = ${authUid}`,
+    }),
+    pgPolicy("user_credentials_insert_own", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: sql`${table.userId} = ${authUid}`,
+    }),
+    pgPolicy("user_credentials_update_own", {
+      for: "update",
+      to: authenticatedRole,
+      using: sql`${table.userId} = ${authUid}`,
+      withCheck: sql`${table.userId} = ${authUid}`,
+    }),
+    pgPolicy("user_credentials_delete_own", {
+      for: "delete",
+      to: authenticatedRole,
+      using: sql`${table.userId} = ${authUid}`,
+    }),
+  ]
+);
+
+export const chatThreads = pgTable(
+  "chat_threads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("chat_threads_workspace_id_idx").on(table.workspaceId),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspaces.id],
+      name: "chat_threads_workspace_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "chat_threads_user_id_fk",
+    }).onDelete("cascade"),
+    pgPolicy("chat_threads_select_members", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`${isWorkspaceMember(table.workspaceId)} and ${table.userId} = ${authUid}`,
+    }),
+    pgPolicy("chat_threads_insert_members", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: sql`${isWorkspaceMember(table.workspaceId)} and ${table.userId} = ${authUid}`,
+    }),
+  ]
+);
+
+export const chatRoleEnum = pgEnum("chat_role", ["user", "assistant"]);
+
+export const chatMessages = pgTable(
+  "chat_messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    threadId: uuid("thread_id").notNull(),
+    workspaceId: uuid("workspace_id").notNull(),
+    userId: uuid("user_id").notNull(),
+    role: chatRoleEnum("role").notNull(),
+    content: text("content").notNull(),
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("chat_messages_thread_id_idx").on(table.threadId),
+    index("chat_messages_workspace_id_idx").on(table.workspaceId),
+    foreignKey({
+      columns: [table.threadId],
+      foreignColumns: [chatThreads.id],
+      name: "chat_messages_thread_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspaces.id],
+      name: "chat_messages_workspace_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.userId],
+      foreignColumns: [users.id],
+      name: "chat_messages_user_id_fk",
+    }).onDelete("cascade"),
+    pgPolicy("chat_messages_select_members", {
+      for: "select",
+      to: authenticatedRole,
+      using: sql`${isWorkspaceMember(table.workspaceId)} and ${table.userId} = ${authUid}`,
+    }),
+    pgPolicy("chat_messages_insert_members", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: sql`${isWorkspaceMember(table.workspaceId)} and ${table.userId} = ${authUid}`,
+    }),
+  ]
+);
+
+export const pendingActionStatusEnum = pgEnum("pending_action_status", [
+  "pending",
+  "confirmed",
+  "rejected",
+]);
+
+export const pendingActions = pgTable(
+  "pending_actions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    initiatedBy: uuid("initiated_by").notNull(),
+    confirmedBy: uuid("confirmed_by"),
+    actionType: text("action_type").notNull(),
+    payload: jsonb("payload").notNull(),
+    status: pendingActionStatusEnum("status").notNull().default("pending"),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    index("pending_actions_workspace_id_idx").on(table.workspaceId),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspaces.id],
+      name: "pending_actions_workspace_id_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.initiatedBy],
+      foreignColumns: [users.id],
+      name: "pending_actions_initiated_by_fk",
+    }).onDelete("cascade"),
+    foreignKey({
+      columns: [table.confirmedBy],
+      foreignColumns: [users.id],
+      name: "pending_actions_confirmed_by_fk",
+    }).onDelete("cascade"),
+    pgPolicy("pending_actions_select_members", {
+      for: "select",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+    }),
+    pgPolicy("pending_actions_insert_members", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: sql`${isWorkspaceMember(table.workspaceId)} and ${table.initiatedBy} = ${authUid}`,
+    }),
+    pgPolicy("pending_actions_update_members", {
+      for: "update",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+      withCheck: isWorkspaceMember(table.workspaceId),
     }),
   ]
 );

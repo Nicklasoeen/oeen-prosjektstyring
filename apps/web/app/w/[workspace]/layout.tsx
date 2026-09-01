@@ -1,12 +1,18 @@
 import { redirect } from "next/navigation";
 
 import { AppShell } from "@/components/app-shell";
+import { ChatDock } from "@/components/chat-dock";
+import { ChatProvider } from "@/components/chat-provider";
 import { WorkspaceTheme } from "@/components/workspace-theme";
 import { getAuthUserId } from "@/lib/auth/session";
 import {
   findMembershipForSlug,
   listWorkspacesForUser,
 } from "@/lib/auth/workspace-access";
+import {
+  findRunningTimer,
+  findUserProfile,
+} from "@/lib/running-timer";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function WorkspaceLayout({
@@ -30,13 +36,25 @@ export default async function WorkspaceLayout({
     redirect("/unauthorized");
   }
 
-  const workspaces = await listWorkspacesForUser(supabase, userId);
+  const [workspaces, profile, runningTimer] = await Promise.all([
+    listWorkspacesForUser(supabase, userId),
+    findUserProfile(supabase, userId),
+    findRunningTimer(supabase, userId),
+  ]);
 
   return (
     <WorkspaceTheme accent={membership.colorAccent}>
-      <AppShell slug={slug} workspaces={workspaces}>
-        {children}
-      </AppShell>
+      <ChatProvider>
+        <AppShell
+          slug={slug}
+          workspaces={workspaces}
+          profile={profile}
+          runningTimer={runningTimer}
+        >
+          {children}
+        </AppShell>
+        <ChatDock slug={slug} />
+      </ChatProvider>
     </WorkspaceTheme>
   );
 }

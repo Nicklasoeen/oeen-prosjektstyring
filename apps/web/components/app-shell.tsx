@@ -2,31 +2,50 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FolderKanban, LayoutDashboard, LogOut, Plus } from "lucide-react";
+import {
+  FolderKanban,
+  LayoutDashboard,
+  LogOut,
+  MessageSquare,
+  Plus,
+  Settings,
+} from "lucide-react";
 import type { ReactNode } from "react";
 
 import { signOut } from "@/app/login/actions";
+import { stopRunningTimer } from "@/app/w/[workspace]/projects/actions";
+import { useChatUi } from "@/components/chat-provider";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import type { WorkspaceSummary } from "@/lib/auth/workspace-access";
+import type { Profile, RunningTimer } from "@/lib/running-timer";
+import { cn } from "@/lib/utils";
 
 export function AppShell({
   slug,
   workspaces,
+  profile,
+  runningTimer,
   children,
 }: {
   slug: string;
   workspaces: WorkspaceSummary[];
+  profile: Profile | null;
+  runningTimer: RunningTimer | null;
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const { setOpen } = useChatUi();
   const dashboardHref = `/w/${slug}/dashboard`;
   const projectsHref = `/w/${slug}/projects`;
+  const settingsHref = `/w/${slug}/settings`;
   const onProjects =
     pathname === projectsHref || pathname.startsWith(`${projectsHref}/`);
   const onDashboard = pathname === dashboardHref;
-  const crumbs = breadcrumbs(pathname, projectsHref);
+  const onSettings = pathname === settingsHref;
+  const crumbs = breadcrumbs(pathname, projectsHref, settingsHref);
+  const timerElsewhere =
+    runningTimer !== null && runningTimer.workspaceSlug !== slug;
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -67,18 +86,40 @@ export function AppShell({
               <FolderKanban />
               Prosjekter
             </NavLink>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground [&_svg]:size-4"
+            >
+              <MessageSquare />
+              Chat
+            </button>
+            <NavLink href={settingsHref} active={onSettings}>
+              <Settings />
+              Innstillinger
+            </NavLink>
           </nav>
 
-          <form action={signOut} className="mt-auto">
-            <Button
-              type="submit"
-              variant="ghost"
-              className="w-full justify-start text-muted-foreground"
-            >
-              <LogOut />
-              Logg ut
-            </Button>
-          </form>
+          <div className="mt-auto space-y-3">
+            {profile ? (
+              <div className="px-1">
+                <p className="truncate text-sm font-medium">{profile.name}</p>
+                <p className="truncate text-label text-muted-foreground">
+                  {profile.email}
+                </p>
+              </div>
+            ) : null}
+            <form action={signOut}>
+              <Button
+                type="submit"
+                variant="ghost"
+                className="w-full justify-start text-muted-foreground"
+              >
+                <LogOut />
+                Logg ut
+              </Button>
+            </form>
+          </div>
         </div>
       </aside>
 
@@ -98,12 +139,12 @@ export function AppShell({
           <MobileNavLink href={projectsHref} active={onProjects}>
             Prosjekter
           </MobileNavLink>
-          <MobileNavLink href={`${projectsHref}#nytt`} active={false}>
-            Nytt prosjekt
+          <MobileNavLink href={settingsHref} active={onSettings}>
+            Innstillinger
           </MobileNavLink>
         </nav>
 
-        <header className="hidden h-14 items-center border-b border-border bg-card px-8 md:flex">
+        <header className="hidden h-14 items-center justify-between gap-4 border-b border-border bg-card px-8 md:flex">
           <p className="text-sm text-muted-foreground">
             <span className="text-foreground">Øen</span>
             {crumbs.map((crumb) => (
@@ -113,6 +154,28 @@ export function AppShell({
               </span>
             ))}
           </p>
+          {runningTimer ? (
+            <form action={stopRunningTimer} className="flex items-center gap-3">
+              <input type="hidden" name="workspace_slug" value={slug} />
+              <p className="max-w-xs truncate text-sm">
+                <span className="font-medium">{runningTimer.taskTitle}</span>
+                {timerElsewhere ? (
+                  <>
+                    <span className="text-muted-foreground"> i </span>
+                    <Link
+                      href={`/w/${runningTimer.workspaceSlug}/projects/${runningTimer.projectId}`}
+                      className="underline-offset-4 hover:underline"
+                    >
+                      {runningTimer.workspaceName}
+                    </Link>
+                  </>
+                ) : null}
+              </p>
+              <Button type="submit" variant="destructive" size="sm">
+                Stopp
+              </Button>
+            </form>
+          ) : null}
         </header>
 
         <div className="flex-1">{children}</div>
@@ -121,12 +184,19 @@ export function AppShell({
   );
 }
 
-function breadcrumbs(pathname: string, projectsHref: string): string[] {
+function breadcrumbs(
+  pathname: string,
+  projectsHref: string,
+  settingsHref: string
+): string[] {
   if (pathname.startsWith(`${projectsHref}/`)) {
     return ["Prosjekter", "Oppgaver"];
   }
   if (pathname === projectsHref) {
     return ["Prosjekter"];
+  }
+  if (pathname === settingsHref) {
+    return ["Innstillinger"];
   }
   return ["Dashboard"];
 }

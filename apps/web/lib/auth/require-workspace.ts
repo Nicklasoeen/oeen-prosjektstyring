@@ -31,3 +31,23 @@ export async function requireWorkspaceAccess(
 
   return { userId, workspace, supabase };
 }
+
+export async function getWorkspaceAccess(slug: string): Promise<{
+  userId: string;
+  workspace: WorkspaceSummary;
+  supabase: SupabaseClient;
+} | null> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return null;
+  }
+
+  const supabase = await createClient();
+  const workspace = await findMembershipForSlug(supabase, userId, slug);
+
+  if (!workspace) {
+    return null;
+  }
+
+  return { userId, workspace, supabase };
+}
