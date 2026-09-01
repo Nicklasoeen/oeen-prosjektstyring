@@ -8,6 +8,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { WorkspaceSummary } from "@/lib/auth/workspace-access";
@@ -44,6 +45,14 @@ export function WorkspaceSwitcher({
             {workspace.slug === currentSlug ? " · aktiv" : ""}
           </DropdownMenuItem>
         ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onSelect={() => {
+            router.push("/w/new");
+          }}
+        >
+          Opprett workspace
+        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

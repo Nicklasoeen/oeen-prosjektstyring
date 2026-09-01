@@ -2,8 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
-import { getOrCreateDefaultWorkspace } from "@/lib/auth/workspace-access";
 import { getAuthUserId } from "@/lib/auth/session";
+import { firstWorkspaceSlugForUser } from "@/lib/auth/workspace-access";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function Home() {
@@ -11,8 +11,8 @@ export default async function Home() {
 
   if (userId) {
     const supabase = await createClient();
-    const slug = await getOrCreateDefaultWorkspace(supabase, userId);
-    redirect(`/w/${slug}/dashboard`);
+    const slug = await firstWorkspaceSlugForUser(supabase, userId);
+    redirect(slug ? `/w/${slug}/dashboard` : "/w/new");
   }
 
   return (

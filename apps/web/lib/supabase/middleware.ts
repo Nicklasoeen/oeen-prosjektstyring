@@ -48,6 +48,10 @@ export async function updateSession(request: NextRequest) {
   }
 
   const slug = workspaceMatch[1];
+  if (slug === "new") {
+    return supabaseResponse;
+  }
+
   if (!slug) {
     return copyCookies(
       supabaseResponse,

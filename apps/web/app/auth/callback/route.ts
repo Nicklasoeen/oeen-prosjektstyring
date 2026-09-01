@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 
 import { isWorkspacePath, safeNextPath } from "@/lib/auth/paths";
-import { getOrCreateDefaultWorkspace } from "@/lib/auth/workspace-access";
+import { firstWorkspaceSlugForUser } from "@/lib/auth/workspace-access";
 import { getSiteUrl } from "@/lib/supabase/env";
 import {
   applyAuthCookies,
@@ -45,10 +45,12 @@ export async function GET(request: Request) {
     return failed;
   }
 
-  const slug = await getOrCreateDefaultWorkspace(supabase, userId);
+  const slug = await firstWorkspaceSlugForUser(supabase, userId);
   const destination = isWorkspacePath(next)
     ? next
-    : `/w/${slug}/dashboard`;
+    : slug
+      ? `/w/${slug}/dashboard`
+      : "/w/new";
 
   const success = NextResponse.redirect(`${site}${destination}`);
   applyAuthCookies(success, capture);

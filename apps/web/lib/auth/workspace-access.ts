@@ -98,26 +98,10 @@ export async function listWorkspacesForUser(
   }));
 }
 
-export async function getOrCreateDefaultWorkspace(
+export async function firstWorkspaceSlugForUser(
   supabase: SupabaseClient,
   userId: string
-): Promise<string> {
+): Promise<string | null> {
   const existing = await listWorkspacesForUser(supabase, userId);
-  const first = existing[0];
-  if (first) {
-    return first.slug;
-  }
-
-  const slug = `ws-${userId.replaceAll("-", "").slice(0, 12)}`;
-  const { error } = await supabase.from("workspaces").insert({
-    name: "Mitt workspace",
-    type: "student",
-    slug,
-  });
-
-  if (error && error.code !== "23505") {
-    throw error;
-  }
-
-  return slug;
+  return existing[0]?.slug ?? null;
 }
