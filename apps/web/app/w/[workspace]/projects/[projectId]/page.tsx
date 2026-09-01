@@ -5,17 +5,16 @@ import {
   createTask,
   toggleTaskTimer,
 } from "@/app/w/[workspace]/projects/actions";
+import { EmptyState } from "@/components/empty-state";
+import { PageFrame, PageHeader } from "@/components/page-frame";
+import { ProgressBar } from "@/components/progress-bar";
+import { PriorityBadge, TaskStatusBadge } from "@/components/status-badge";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
+import { formatDueDateNb, isPastDate } from "@/lib/format";
+import { cn } from "@/lib/utils";
 
 type ProjectRow = {
   id: string;
@@ -35,12 +34,6 @@ type TaskRow = {
 type TimeEntryRow = {
   id: string;
   task_id: string;
-};
-
-const PRIORITY_LABEL: Record<TaskRow["priority"], string> = {
-  low: "Lav",
-  medium: "Middels",
-  urgent: "Haster",
 };
 
 export default async function ProjectDetailPage({
@@ -95,72 +88,105 @@ export default async function ProjectDetailPage({
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 p-6">
-      <div>
-        <p className="text-sm text-muted-foreground">
-          <Link href={`/w/${slug}/projects`} className="underline-offset-4 hover:underline">
-            Prosjekter
+    <PageFrame>
+      <PageHeader
+        title={project.name}
+        description={
+          <Link
+            href={`/w/${slug}/projects`}
+            className="text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+          >
+            Tilbake til prosjekter
           </Link>
-        </p>
-        <h1 className="mt-1 text-xl font-medium tracking-tight">{project.name}</h1>
-      </div>
+        }
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Ny oppgave</CardTitle>
-          <CardDescription>Knyttes til dette prosjektet.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={createTask} className="grid gap-3 sm:grid-cols-2">
-            <input type="hidden" name="workspace_slug" value={slug} />
-            <input type="hidden" name="project_id" value={project.id} />
-            <div className="space-y-2 sm:col-span-2">
-              <Label htmlFor="title">Tittel</Label>
-              <Input id="title" name="title" required placeholder="F.eks. Skrive tilbud" />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="priority">Prioritet</Label>
-              <select
-                id="priority"
-                name="priority"
-                defaultValue="medium"
-                className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
-              >
-                <option value="low">Lav</option>
-                <option value="medium">Middels</option>
-                <option value="urgent">Haster</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="due_date">Frist</Label>
-              <Input id="due_date" name="due_date" type="date" />
-            </div>
-            <div className="sm:col-span-2">
-              <Button type="submit">Opprett oppgave</Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
+      <form
+        action={createTask}
+        className="grid gap-3 rounded-xl bg-card p-4 ring-1 ring-foreground/8 sm:grid-cols-2"
+      >
+        <input type="hidden" name="workspace_slug" value={slug} />
+        <input type="hidden" name="project_id" value={project.id} />
+        <div className="space-y-2 sm:col-span-2">
+          <Label htmlFor="title">Ny oppgave</Label>
+          <Input
+            id="title"
+            name="title"
+            required
+            placeholder="F.eks. Skrive tilbud"
+            className="h-9"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="priority">Prioritet</Label>
+          <select
+            id="priority"
+            name="priority"
+            defaultValue="medium"
+            className="h-9 w-full rounded-lg border border-input bg-background px-2.5 text-sm"
+          >
+            <option value="low">Lav</option>
+            <option value="medium">Middels</option>
+            <option value="urgent">Haster</option>
+          </select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="due_date">Frist</Label>
+          <Input id="due_date" name="due_date" type="date" className="h-9" />
+        </div>
+        <div className="sm:col-span-2">
+          <Button type="submit">Opprett oppgave</Button>
+        </div>
+      </form>
 
       {tasks.length === 0 ? (
-        <p className="text-sm text-muted-foreground">Ingen oppgaver ennå.</p>
+        <EmptyState
+          title="Ingen oppgaver ennå"
+          description="Legg til den første oppgaven over. Prioritet, frist og fremdrift vises her når den er opprettet."
+        />
       ) : (
-        <ul className="divide-y rounded-xl ring-1 ring-foreground/10">
+        <ul className="grid gap-3">
           {tasks.map((task) => {
             const running = runningByTaskId.has(task.id);
+            const overdue =
+              task.due_date !== null &&
+              task.status !== "done" &&
+              isPastDate(task.due_date);
+
             return (
               <li
                 key={task.id}
-                className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-4 rounded-xl bg-card p-5 ring-1 ring-foreground/8 sm:flex-row sm:items-center sm:justify-between"
               >
-                <div className="min-w-0">
-                  <p className="font-medium">{task.title}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {PRIORITY_LABEL[task.priority]}
-                    {task.due_date ? ` · frist ${task.due_date}` : ""}
-                  </p>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="font-heading text-section text-foreground">
+                      {task.title}
+                    </h2>
+                    <PriorityBadge value={task.priority} />
+                    <TaskStatusBadge value={task.status} />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                    {task.due_date ? (
+                      <p
+                        className={cn(
+                          "font-mono text-label",
+                          overdue
+                            ? "text-destructive"
+                            : "text-muted-foreground"
+                        )}
+                      >
+                        Frist {formatDueDateNb(task.due_date)}
+                      </p>
+                    ) : (
+                      <p className="font-mono text-label text-muted-foreground">
+                        Ingen frist
+                      </p>
+                    )}
+                  </div>
+                  <ProgressBar value={task.progress} className="max-w-sm" />
                 </div>
-                <form action={toggleTaskTimer}>
+                <form action={toggleTaskTimer} className="shrink-0">
                   <input type="hidden" name="workspace_slug" value={slug} />
                   <input type="hidden" name="project_id" value={project.id} />
                   <input type="hidden" name="task_id" value={task.id} />
@@ -169,7 +195,10 @@ export default async function ProjectDetailPage({
                     name="intent"
                     value={running ? "stop" : "start"}
                   />
-                  <Button type="submit" variant={running ? "destructive" : "outline"}>
+                  <Button
+                    type="submit"
+                    variant={running ? "destructive" : "outline"}
+                  >
                     {running ? "Stopp" : "Start"}
                   </Button>
                 </form>
@@ -178,6 +207,6 @@ export default async function ProjectDetailPage({
           })}
         </ul>
       )}
-    </main>
+    </PageFrame>
   );
 }

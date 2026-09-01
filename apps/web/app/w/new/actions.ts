@@ -4,14 +4,7 @@ import { redirect } from "next/navigation";
 
 import { getAuthUserId } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-
-const WORKSPACE_TYPES = ["student", "enk", "job"] as const;
-
-function isWorkspaceType(
-  value: string
-): value is (typeof WORKSPACE_TYPES)[number] {
-  return (WORKSPACE_TYPES as readonly string[]).includes(value);
-}
+import { isWorkspaceAccent, isWorkspaceType } from "@/lib/workspace-accent";
 
 function slugFromName(name: string) {
   const base = name
@@ -33,8 +26,9 @@ export async function createWorkspace(formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const typeValue = String(formData.get("type") ?? "");
+  const colorAccent = String(formData.get("color_accent") ?? "").toUpperCase();
 
-  if (!name || !isWorkspaceType(typeValue)) {
+  if (!name || !isWorkspaceType(typeValue) || !isWorkspaceAccent(colorAccent)) {
     redirect("/w/new?error=invalid");
   }
 
@@ -51,6 +45,7 @@ export async function createWorkspace(formData: FormData) {
     name,
     type: typeValue,
     slug,
+    color_accent: colorAccent,
   });
 
   if (error) {

@@ -1,7 +1,9 @@
 "use client";
 
+import { Check, ChevronsUpDown } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { AccentDot } from "@/components/accent-dot";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -12,6 +14,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { WorkspaceSummary } from "@/lib/auth/workspace-access";
+import { cn } from "@/lib/utils";
+
+const TYPE_LABEL: Record<WorkspaceSummary["type"], string> = {
+  student: "Student",
+  enk: "ENK",
+  job: "Jobb",
+};
 
 export function WorkspaceSwitcher({
   workspaces,
@@ -28,23 +37,56 @@ export function WorkspaceSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button type="button" variant="outline">
-          {current?.name ?? "Workspace"}
+        <Button
+          type="button"
+          variant="outline"
+          className="h-auto w-full justify-between gap-2 px-3 py-2 text-left font-normal"
+        >
+          <span className="flex min-w-0 items-center gap-2">
+            {current ? (
+              <AccentDot accent={current.colorAccent} type={current.type} />
+            ) : null}
+            <span className="min-w-0 truncate text-sm font-medium">
+              {current?.name ?? "Workspace"}
+            </span>
+          </span>
+          <ChevronsUpDown className="size-3.5 text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start">
+      <DropdownMenuContent align="start" className="w-64">
         <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
-        {workspaces.map((workspace) => (
-          <DropdownMenuItem
-            key={workspace.id}
-            onSelect={() => {
-              router.push(`/w/${workspace.slug}/dashboard`);
-            }}
-          >
-            {workspace.name}
-            {workspace.slug === currentSlug ? " · aktiv" : ""}
-          </DropdownMenuItem>
-        ))}
+        {workspaces.map((workspace) => {
+          const active = workspace.slug === currentSlug;
+          return (
+            <DropdownMenuItem
+              key={workspace.id}
+              className="items-start py-2"
+              onSelect={() => {
+                router.push(`/w/${workspace.slug}/dashboard`);
+              }}
+            >
+              <AccentDot
+                accent={workspace.colorAccent}
+                type={workspace.type}
+                className="mt-1"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">
+                  {workspace.name}
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  {TYPE_LABEL[workspace.type]}
+                </span>
+              </span>
+              <Check
+                className={cn(
+                  "mt-0.5 size-3.5 text-[var(--workspace-accent)]",
+                  active ? "opacity-100" : "opacity-0"
+                )}
+              />
+            </DropdownMenuItem>
+          );
+        })}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           onSelect={() => {

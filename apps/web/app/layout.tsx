@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Schibsted_Grotesk } from "next/font/google";
 
 import { cn } from "@/lib/utils";
 
@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
 });
 
+const schibsted = Schibsted_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-schibsted",
+});
+
 export const metadata: Metadata = {
   title: "Øen prosjektstyring",
   description: "Prosjektstyring",
@@ -28,7 +33,11 @@ export default function RootLayout({
   return (
     <html
       lang="nb"
-      className={cn(geistSans.variable, geistMono.variable)}
+      className={cn(
+        geistSans.variable,
+        geistMono.variable,
+        schibsted.variable
+      )}
     >
       <body className="min-h-screen antialiased">{children}</body>
     </html>

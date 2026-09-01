@@ -1,3 +1,5 @@
+import { PageFrame, PageHeader } from "@/components/page-frame";
+
 export default async function WorkspaceDashboardPage({
   params,
 }: {
@@ -6,11 +8,12 @@ export default async function WorkspaceDashboardPage({
   const { workspace } = await params;
 
   return (
-    <main className="p-6">
-      <h1 className="text-xl font-medium tracking-tight">Dashboard</h1>
-      <p className="mt-2 text-sm text-muted-foreground">
-        Workspace <span className="font-mono">{workspace}</span>
-      </p>
-    </main>
+    <PageFrame>
+      <PageHeader
+        title="Dashboard"
+        description="Oversikt kommer her. Gå til Prosjekter for å starte arbeidet."
+      />
+      <p className="font-mono text-label text-muted-foreground">{workspace}</p>
+    </PageFrame>
   );
 }

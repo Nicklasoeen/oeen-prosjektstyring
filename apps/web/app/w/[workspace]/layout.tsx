@@ -1,9 +1,7 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
-import { signOut } from "@/app/login/actions";
-import { WorkspaceSwitcher } from "@/components/workspace-switcher";
-import { Button } from "@/components/ui/button";
+import { AppShell } from "@/components/app-shell";
+import { WorkspaceTheme } from "@/components/workspace-theme";
 import { getAuthUserId } from "@/lib/auth/session";
 import {
   findMembershipForSlug,
@@ -35,35 +33,10 @@ export default async function WorkspaceLayout({
   const workspaces = await listWorkspacesForUser(supabase, userId);
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between gap-4 border-b px-4 py-3">
-        <div className="flex items-center gap-4">
-          <WorkspaceSwitcher
-            currentSlug={slug}
-            workspaces={workspaces}
-          />
-          <nav className="flex items-center gap-3 text-sm">
-            <Link
-              href={`/w/${slug}/dashboard`}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href={`/w/${slug}/projects`}
-              className="text-muted-foreground hover:text-foreground"
-            >
-              Prosjekter
-            </Link>
-          </nav>
-        </div>
-        <form action={signOut}>
-          <Button type="submit" variant="ghost">
-            Logg ut
-          </Button>
-        </form>
-      </header>
-      <div className="flex-1">{children}</div>
-    </div>
+    <WorkspaceTheme accent={membership.colorAccent} type={membership.type}>
+      <AppShell slug={slug} workspaces={workspaces}>
+        {children}
+      </AppShell>
+    </WorkspaceTheme>
   );
 }
