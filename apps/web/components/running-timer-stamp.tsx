@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { stopRunningTimer } from "@/app/w/[workspace]/projects/actions";
+import { useRunningTimer } from "@/components/running-timer-provider";
 import { formatElapsedClock } from "@/lib/format";
 import type { RunningTimer } from "@/lib/running-timer";
 import { cn } from "@/lib/utils";
@@ -16,6 +18,8 @@ export function RunningTimerStamp({
   timer: RunningTimer;
   className?: string;
 }) {
+  const router = useRouter();
+  const { refresh } = useRunningTimer();
   const [now, setNow] = useState(() => Date.now());
   const elsewhere = timer.workspaceSlug !== slug;
   const elapsed = formatElapsedClock(timer.startedAt, now);
@@ -32,8 +36,14 @@ export function RunningTimerStamp({
     };
   }, [timer.startedAt]);
 
+  async function onStop(formData: FormData) {
+    await stopRunningTimer(formData);
+    await refresh();
+    router.refresh();
+  }
+
   return (
-    <form action={stopRunningTimer} className={cn("min-w-0", className)}>
+    <form action={onStop} className={cn("min-w-0", className)}>
       <input type="hidden" name="workspace_slug" value={slug} />
       <button
         type="submit"

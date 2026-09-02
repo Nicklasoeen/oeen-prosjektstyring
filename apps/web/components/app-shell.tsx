@@ -15,26 +15,26 @@ import type { ReactNode } from "react";
 import { signOut } from "@/app/login/actions";
 import { useChatUi } from "@/components/chat-provider";
 import { RunningTimerStamp } from "@/components/running-timer-stamp";
+import { useRunningTimer } from "@/components/running-timer-provider";
 import { WorkspaceSwitcher } from "@/components/workspace-switcher";
 import { Button } from "@/components/ui/button";
 import type { WorkspaceSummary } from "@/lib/auth/workspace-access";
-import type { Profile, RunningTimer } from "@/lib/running-timer";
+import type { Profile } from "@/lib/running-timer";
 import { cn } from "@/lib/utils";
 
 export function AppShell({
   slug,
   workspaces,
   profile,
-  runningTimer,
   children,
 }: {
   slug: string;
   workspaces: WorkspaceSummary[];
   profile: Profile | null;
-  runningTimer: RunningTimer | null;
   children: ReactNode;
 }) {
   const pathname = usePathname();
+  const { timer: runningTimer } = useRunningTimer();
   const { setOpen } = useChatUi();
   const dashboardHref = `/w/${slug}/dashboard`;
   const projectsHref = `/w/${slug}/projects`;

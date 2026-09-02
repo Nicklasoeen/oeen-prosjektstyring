@@ -36,7 +36,10 @@ export async function findRunningTimer(
     .is("ended_at", null)
     .maybeSingle<TimeEntryRow>();
 
-  if (error || !entry) {
+  if (error) {
+    throw error;
+  }
+  if (!entry) {
     return null;
   }
 
@@ -54,17 +57,13 @@ export async function findRunningTimer(
       .maybeSingle<WorkspaceRow>(),
   ]);
 
-  if (!project || !workspace) {
-    return null;
-  }
-
   return {
     entryId: entry.id,
-    projectId: project.id,
-    projectName: project.name,
-    workspaceId: workspace.id,
-    workspaceSlug: workspace.slug,
-    workspaceName: workspace.name,
+    projectId: entry.project_id,
+    projectName: project?.name ?? "Ukjent prosjekt",
+    workspaceId: entry.workspace_id,
+    workspaceSlug: workspace?.slug ?? "",
+    workspaceName: workspace?.name ?? "",
     startedAt: entry.started_at,
   };
 }

@@ -5,8 +5,14 @@ import { redirect } from "next/navigation";
 
 import { readCustomFieldValue } from "@/components/dynamic-project-fields";
 import { logActivity } from "@/lib/activity";
+import { getAuthUserId } from "@/lib/auth/session";
 import { canEditWorkspace } from "@/lib/auth/workspace-access";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
+import {
+  findRunningTimer,
+  type RunningTimer,
+} from "@/lib/running-timer";
+import { createClient } from "@/lib/supabase/server";
 import {
   collectCustomFields,
   parseChecklistTemplate,
@@ -53,6 +59,7 @@ function revalidateProject(slug: string, projectId: string) {
 }
 
 function revalidateWorkspaceTimer(slug: string) {
+  revalidatePath("/w/[workspace]", "layout");
   revalidatePath(`/w/${slug}`, "layout");
   revalidatePath(`/w/${slug}/dashboard`);
   revalidatePath(`/w/${slug}/timeoversikt`);
@@ -692,7 +699,9 @@ export async function toggleTaskAssignee(formData: FormData) {
   revalidateProject(slug, projectId);
 }
 
-export async function toggleProjectTimer(formData: FormData) {
+export async function toggleProjectTimer(
+  formData: FormData
+): Promise<{ stoppedName: string | null }> {
   const slug = String(formData.get("workspace_slug") ?? "");
   const projectId = String(formData.get("project_id") ?? "");
   const intent = String(formData.get("intent") ?? "");
@@ -718,33 +727,8 @@ export async function toggleProjectTimer(formData: FormData) {
   }
 
   if (intent === "stop") {
-    const { data: stopped, error } = await supabase
-      .from("time_entries")
-      .update({ ended_at: new Date().toISOString() })
-      .eq("project_id", project.id)
-      .eq("workspace_id", workspace.id)
-      .eq("user_id", userId)
-      .is("ended_at", null)
-      .select("id")
-      .maybeSingle<{ id: string }>();
-
-    if (error) {
-      throw error;
-    }
-
-    if (stopped) {
-      await logActivity(supabase, {
-        workspaceId: workspace.id,
-        userId,
-        entityType: "time_entry",
-        entityId: stopped.id,
-        action: "timer.stopped",
-      });
-    }
-
-    revalidateProject(slug, projectId);
-    revalidateWorkspaceTimer(slug);
-    redirect(projectPath(slug, projectId));
+    await stopOpenTimersForUser(supabase, userId, slug);
+    return { stoppedName: null };
   }
 
   const { data: openEntries, error: openError } = await supabase
@@ -764,7 +748,7 @@ export async function toggleProjectTimer(formData: FormData) {
   if (alreadyHere) {
     revalidateProject(slug, projectId);
     revalidateWorkspaceTimer(slug);
-    redirect(projectPath(slug, projectId));
+    return { stoppedName: null };
   }
 
   let stoppedName: string | null = null;
@@ -847,12 +831,16 @@ export async function toggleProjectTimer(formData: FormData) {
 
   revalidateProject(slug, projectId);
   revalidateWorkspaceTimer(slug);
+  return { stoppedName };
+}
 
-  const next = projectPath(slug, projectId);
-  if (stoppedName) {
-    redirect(`${next}?stopped=${encodeURIComponent(stoppedName)}`);
+export async function getRunningTimerAction(): Promise<RunningTimer | null> {
+  const userId = await getAuthUserId();
+  if (!userId) {
+    return null;
   }
-  redirect(next);
+  const supabase = await createClient();
+  return findRunningTimer(supabase, userId);
 }
 
 export async function stopRunningTimer(formData: FormData) {
@@ -861,7 +849,14 @@ export async function stopRunningTimer(formData: FormData) {
     slug,
     `/w/${slug}/dashboard`
   );
+  await stopOpenTimersForUser(supabase, userId, slug);
+}
 
+async function stopOpenTimersForUser(
+  supabase: SupabaseClient,
+  userId: string,
+  fallbackSlug: string
+): Promise<void> {
   const { data: stopped, error } = await supabase
     .from("time_entries")
     .update({ ended_at: new Date().toISOString() })
@@ -897,12 +892,12 @@ export async function stopRunningTimer(formData: FormData) {
       entityId: row.id,
       action: "timer.stopped",
     });
-    const rowSlug = slugByWorkspaceId.get(row.workspace_id) ?? slug;
+    const rowSlug = slugByWorkspaceId.get(row.workspace_id) ?? fallbackSlug;
     revalidateProject(rowSlug, row.project_id);
     revalidateWorkspaceTimer(rowSlug);
   }
 
-  revalidateWorkspaceTimer(slug);
+  revalidateWorkspaceTimer(fallbackSlug);
 }
 
 /** Returns null for empty input, undefined for invalid input. */

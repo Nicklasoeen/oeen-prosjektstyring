@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { ChatDock } from "@/components/chat-dock";
 import { ChatProvider } from "@/components/chat-provider";
+import { RunningTimerProvider } from "@/components/running-timer-provider";
 import { WorkspaceTheme } from "@/components/workspace-theme";
 import { getAuthUserId } from "@/lib/auth/session";
 import {
@@ -14,6 +15,8 @@ import {
   findUserProfile,
 } from "@/lib/running-timer";
 import { createClient } from "@/lib/supabase/server";
+
+export const dynamic = "force-dynamic";
 
 export default async function WorkspaceLayout({
   children,
@@ -45,15 +48,12 @@ export default async function WorkspaceLayout({
   return (
     <WorkspaceTheme accent={membership.colorAccent}>
       <ChatProvider>
-        <AppShell
-          slug={slug}
-          workspaces={workspaces}
-          profile={profile}
-          runningTimer={runningTimer}
-        >
-          {children}
-        </AppShell>
-        <ChatDock slug={slug} />
+        <RunningTimerProvider initial={runningTimer}>
+          <AppShell slug={slug} workspaces={workspaces} profile={profile}>
+            {children}
+          </AppShell>
+          <ChatDock slug={slug} />
+        </RunningTimerProvider>
       </ChatProvider>
     </WorkspaceTheme>
   );
