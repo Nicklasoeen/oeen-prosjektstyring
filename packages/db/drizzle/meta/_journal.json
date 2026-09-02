@@ -78,6 +78,13 @@
       "when": 1788645600000,
       "tag": "0010_project_workflow",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1788678000000,
+      "tag": "0011_configurable_project_types",
+      "breakpoints": true
     }
   ]
 }

@@ -8,20 +8,31 @@ import { ProjectStageBadge } from "@/components/status-badge";
 import { Surface, surfaceClass } from "@/components/surface";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
 import { formatDateNb } from "@/lib/format";
+import { isProjectStage } from "@/lib/projects";
 import {
-  isProjectStage,
-  isProjectType,
-  PROJECT_TYPE_LABELS,
-} from "@/lib/projects";
+  customerLabel,
+  parseChecklistTemplate,
+  parseCustomFields,
+  parseFieldSchema,
+  type ProjectTypeSummary,
+} from "@/lib/project-types";
 import { cn } from "@/lib/utils";
 
 type ProjectRow = {
   id: string;
   name: string;
   stage: string;
-  type: string;
-  customer_name: string;
+  project_type_id: string | null;
+  custom_fields: unknown;
   created_at: string;
+};
+
+type TypeRow = {
+  id: string;
+  name: string;
+  field_schema: unknown;
+  checklist_template: unknown;
+  sort_order: number;
 };
 
 export default async function ProjectsPage({
@@ -38,18 +49,37 @@ export default async function ProjectsPage({
     `/w/${slug}/projects`
   );
 
-  const { data, error: queryError } = await supabase
-    .from("projects")
-    .select("id, name, stage, type, customer_name, created_at")
-    .eq("workspace_id", workspace.id)
-    .order("created_at", { ascending: false })
-    .returns<ProjectRow[]>();
+  const [projectsResult, typesResult] = await Promise.all([
+    supabase
+      .from("projects")
+      .select("id, name, stage, project_type_id, custom_fields, created_at")
+      .eq("workspace_id", workspace.id)
+      .order("created_at", { ascending: false })
+      .returns<ProjectRow[]>(),
+    supabase
+      .from("project_types")
+      .select("id, name, field_schema, checklist_template, sort_order")
+      .eq("workspace_id", workspace.id)
+      .order("sort_order", { ascending: true })
+      .returns<TypeRow[]>(),
+  ]);
 
-  if (queryError) {
-    throw queryError;
+  if (projectsResult.error) {
+    throw projectsResult.error;
+  }
+  if (typesResult.error) {
+    throw typesResult.error;
   }
 
-  const projects = data ?? [];
+  const projects = projectsResult.data ?? [];
+  const types: ProjectTypeSummary[] = (typesResult.data ?? []).map((row) => ({
+    id: row.id,
+    name: row.name,
+    fields: parseFieldSchema(row.field_schema),
+    checklist: parseChecklistTemplate(row.checklist_template),
+    sortOrder: row.sort_order,
+  }));
+  const typeNameById = new Map(types.map((type) => [type.id, type.name]));
 
   return (
     <PageFrame>
@@ -59,7 +89,7 @@ export default async function ProjectsPage({
       />
 
       <Surface id="nytt" className="scroll-mt-6 p-5">
-        <CreateProjectForm slug={slug} error={error} />
+        <CreateProjectForm slug={slug} types={types} error={error} />
       </Surface>
 
       {projects.length === 0 ? (
@@ -70,9 +100,15 @@ export default async function ProjectsPage({
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2">
           {projects.map((project) => {
-            const typeLabel = isProjectType(project.type)
-              ? PROJECT_TYPE_LABELS[project.type]
-              : PROJECT_TYPE_LABELS.other;
+            const typeLabel = project.project_type_id
+              ? typeNameById.get(project.project_type_id)
+              : undefined;
+            const customer = customerLabel(
+              parseCustomFields(project.custom_fields)
+            );
+            const meta = [typeLabel ?? "Uten type", customer]
+              .filter((part): part is string => Boolean(part))
+              .join(" · ");
             return (
               <li key={project.id}>
                 <Link
@@ -89,10 +125,7 @@ export default async function ProjectsPage({
                           {project.name}
                         </h2>
                         <p className="mt-1 text-label text-muted-foreground">
-                          {typeLabel}
-                          {project.customer_name
-                            ? ` · ${project.customer_name}`
-                            : ""}
+                          {meta}
                         </p>
                       </div>
                     </div>

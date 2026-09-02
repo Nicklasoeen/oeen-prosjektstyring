@@ -3,25 +3,42 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
+import { readCustomFieldValue } from "@/components/dynamic-project-fields";
 import { logActivity } from "@/lib/activity";
 import { canEditWorkspace } from "@/lib/auth/workspace-access";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
 import {
+  collectCustomFields,
+  parseChecklistTemplate,
+  parseFieldSchema,
+} from "@/lib/project-types";
+import {
   isProjectStage,
-  isProjectType,
   isTaskCategory,
   isTaskPriority,
   isTaskStatus,
 } from "@/lib/projects";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-const DEFAULT_CHECKLIST = [
-  "Har kunden bilder/logo?",
-  "Lager kunden innhold selv?",
-  "Skal kunden ha Trafikk (SEO-produkt)?",
-  "Skriver kunden tekst selv?",
-  "Har kunden domeneinnlogging?",
-  "Kundeuttalelse etterspurt?",
-] as const;
+type ProjectTypeRow = {
+  id: string;
+  field_schema: unknown;
+  checklist_template: unknown;
+};
+
+async function loadProjectType(
+  supabase: SupabaseClient,
+  workspaceId: string,
+  typeId: string
+): Promise<ProjectTypeRow | null> {
+  const { data } = await supabase
+    .from("project_types")
+    .select("id, field_schema, checklist_template")
+    .eq("id", typeId)
+    .eq("workspace_id", workspaceId)
+    .maybeSingle<ProjectTypeRow>();
+  return data ?? null;
+}
 
 function projectPath(slug: string, projectId: string, tab?: string) {
   const base = `/w/${slug}/projects/${projectId}`;
@@ -37,11 +54,7 @@ function revalidateProject(slug: string, projectId: string) {
 export async function createProject(formData: FormData) {
   const slug = String(formData.get("workspace_slug") ?? "");
   const name = String(formData.get("name") ?? "").trim();
-  const typeValue = String(formData.get("type") ?? "");
-  const customerName = String(formData.get("customer_name") ?? "").trim();
-  const contactName = emptyToNull(formData.get("contact_name"));
-  const contactEmail = emptyToNull(formData.get("contact_email"));
-  const oldWebsiteUrl = emptyToNull(formData.get("old_website_url"));
+  const typeId = String(formData.get("project_type_id") ?? "").trim();
   const estimatedHoursRaw = String(formData.get("estimated_hours") ?? "").trim();
 
   const { userId, workspace, supabase } = await requireWorkspaceAccess(
@@ -53,12 +66,21 @@ export async function createProject(formData: FormData) {
     redirect("/unauthorized");
   }
 
-  if (!name || !customerName || !isProjectType(typeValue)) {
+  if (!name || !typeId) {
     redirect(`/w/${slug}/projects?error=invalid`);
   }
 
-  if (contactEmail && !contactEmail.includes("@")) {
-    redirect(`/w/${slug}/projects?error=email`);
+  const projectType = await loadProjectType(supabase, workspace.id, typeId);
+  if (!projectType) {
+    redirect(`/w/${slug}/projects?error=invalid`);
+  }
+
+  const collected = collectCustomFields(
+    parseFieldSchema(projectType.field_schema),
+    (key) => readCustomFieldValue(formData, key)
+  );
+  if ("error" in collected) {
+    redirect(`/w/${slug}/projects?error=fields`);
   }
 
   const estimatedHours = parseHours(estimatedHoursRaw);
@@ -71,11 +93,8 @@ export async function createProject(formData: FormData) {
     .insert({
       workspace_id: workspace.id,
       name,
-      type: typeValue,
-      customer_name: customerName,
-      contact_name: contactName,
-      contact_email: contactEmail,
-      old_website_url: oldWebsiteUrl,
+      project_type_id: projectType.id,
+      custom_fields: collected.values,
       estimated_hours: estimatedHours,
       stage: "new",
     })
@@ -86,20 +105,23 @@ export async function createProject(formData: FormData) {
     throw error ?? new Error("Kunne ikke opprette prosjekt");
   }
 
-  const { error: checklistError } = await supabase
-    .from("project_checklist_items")
-    .insert(
-      DEFAULT_CHECKLIST.map((label) => ({
-        workspace_id: workspace.id,
-        project_id: data.id,
-        label,
-        checked: false,
-        is_custom: false,
-      }))
-    );
+  const checklist = parseChecklistTemplate(projectType.checklist_template);
+  if (checklist.length > 0) {
+    const { error: checklistError } = await supabase
+      .from("project_checklist_items")
+      .insert(
+        checklist.map((label) => ({
+          workspace_id: workspace.id,
+          project_id: data.id,
+          label,
+          checked: false,
+          is_custom: false,
+        }))
+      );
 
-  if (checklistError) {
-    throw checklistError;
+    if (checklistError) {
+      throw checklistError;
+    }
   }
 
   await logActivity(supabase, {
@@ -456,13 +478,8 @@ export async function updateTaskCategory(formData: FormData) {
 export async function updateProjectDetails(formData: FormData) {
   const slug = String(formData.get("workspace_slug") ?? "");
   const projectId = String(formData.get("project_id") ?? "");
-  const typeValue = String(formData.get("type") ?? "");
-  const customerName = String(formData.get("customer_name") ?? "").trim();
-  const domain = emptyToNull(formData.get("domain"));
-  const productionDomain = emptyToNull(formData.get("production_domain"));
-  const contactName = emptyToNull(formData.get("contact_name"));
-  const contactEmail = emptyToNull(formData.get("contact_email"));
-  const oldWebsiteUrl = emptyToNull(formData.get("old_website_url"));
+  const name = String(formData.get("name") ?? "").trim();
+  const typeId = String(formData.get("project_type_id") ?? "").trim();
   const estimatedHoursRaw = String(formData.get("estimated_hours") ?? "").trim();
 
   const { userId, workspace, supabase } = await requireWorkspaceAccess(
@@ -474,12 +491,21 @@ export async function updateProjectDetails(formData: FormData) {
     redirect("/unauthorized");
   }
 
-  if (!isProjectType(typeValue) || !customerName) {
+  if (!name || !typeId) {
     redirect(`${projectPath(slug, projectId, "detaljer")}&error=invalid`);
   }
 
-  if (contactEmail && !contactEmail.includes("@")) {
-    redirect(`${projectPath(slug, projectId, "detaljer")}&error=email`);
+  const projectType = await loadProjectType(supabase, workspace.id, typeId);
+  if (!projectType) {
+    redirect(`${projectPath(slug, projectId, "detaljer")}&error=invalid`);
+  }
+
+  const collected = collectCustomFields(
+    parseFieldSchema(projectType.field_schema),
+    (key) => readCustomFieldValue(formData, key)
+  );
+  if ("error" in collected) {
+    redirect(`${projectPath(slug, projectId, "detaljer")}&error=fields`);
   }
 
   const estimatedHours = parseHours(estimatedHoursRaw);
@@ -490,13 +516,9 @@ export async function updateProjectDetails(formData: FormData) {
   const { data, error } = await supabase
     .from("projects")
     .update({
-      type: typeValue,
-      customer_name: customerName,
-      domain,
-      production_domain: productionDomain,
-      contact_name: contactName,
-      contact_email: contactEmail,
-      old_website_url: oldWebsiteUrl,
+      name,
+      project_type_id: projectType.id,
+      custom_fields: collected.values,
       estimated_hours: estimatedHours,
     })
     .eq("id", projectId)
@@ -791,11 +813,6 @@ export async function stopRunningTimer(formData: FormData) {
 
   revalidatePath(`/w/${slug}`, "layout");
   revalidatePath(`/w/${slug}/dashboard`);
-}
-
-function emptyToNull(value: FormDataEntryValue | null): string | null {
-  const text = String(value ?? "").trim();
-  return text.length > 0 ? text : null;
 }
 
 /** Returns null for empty input, undefined for invalid input. */

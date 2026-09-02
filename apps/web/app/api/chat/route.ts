@@ -8,13 +8,16 @@ import { NextResponse } from "next/server";
 
 import { getWorkspaceAccess } from "@/lib/auth/require-workspace";
 import { decryptSecret } from "@/lib/crypto-secret";
+import { parseCustomFields } from "@/lib/project-types";
 
 type ProjectRow = {
   id: string;
   name: string;
   stage: string;
-  customer_name: string;
+  project_type_id: string | null;
+  custom_fields: unknown;
 };
+type ProjectTypeRow = { id: string; name: string };
 type TaskRow = {
   title: string;
   status: string;
@@ -61,10 +64,10 @@ export async function POST(request: Request) {
   const apiKey = decryptSecret(credential.encrypted_key);
   const anthropic = createAnthropic({ apiKey });
 
-  const [projectsResult, tasksResult] = await Promise.all([
+  const [projectsResult, tasksResult, projectTypesResult] = await Promise.all([
     supabase
       .from("projects")
-      .select("id, name, stage, customer_name")
+      .select("id, name, stage, project_type_id, custom_fields")
       .eq("workspace_id", workspace.id)
       .returns<ProjectRow[]>(),
     supabase
@@ -72,7 +75,16 @@ export async function POST(request: Request) {
       .select("title, status, priority, progress, due_date, project_id")
       .eq("workspace_id", workspace.id)
       .returns<TaskRow[]>(),
+    supabase
+      .from("project_types")
+      .select("id, name")
+      .eq("workspace_id", workspace.id)
+      .returns<ProjectTypeRow[]>(),
   ]);
+
+  const typeNameById = new Map(
+    (projectTypesResult.data ?? []).map((row) => [row.id, row.name])
+  );
 
   const snapshot = JSON.stringify(
     {
@@ -80,7 +92,10 @@ export async function POST(request: Request) {
       projects: (projectsResult.data ?? []).map((project) => ({
         name: project.name,
         stage: project.stage,
-        customer: project.customer_name,
+        type: project.project_type_id
+          ? typeNameById.get(project.project_type_id)
+          : null,
+        fields: parseCustomFields(project.custom_fields),
         tasks: (tasksResult.data ?? [])
           .filter((task) => task.project_id === project.id)
           .map((task) => ({

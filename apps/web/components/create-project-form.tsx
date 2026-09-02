@@ -1,32 +1,51 @@
 "use client";
 
-import { ChevronDown } from "lucide-react";
+import Link from "next/link";
 import { useState } from "react";
 
 import { createProject } from "@/app/w/[workspace]/projects/actions";
+import { DynamicProjectFields } from "@/components/dynamic-project-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  PROJECT_TYPES,
-  PROJECT_TYPE_LABELS,
-  type ProjectType,
-} from "@/lib/projects";
+import type { ProjectTypeSummary } from "@/lib/project-types";
 import { cn } from "@/lib/utils";
+
+const EMPTY_VALUES: Record<string, string> = {};
 
 export function CreateProjectForm({
   slug,
+  types,
   error,
 }: {
   slug: string;
+  types: ProjectTypeSummary[];
   error?: string;
 }) {
-  const [type, setType] = useState<ProjectType>("custom_website");
-  const [showOptional, setShowOptional] = useState(false);
+  const [typeId, setTypeId] = useState<string>(types[0]?.id ?? "");
+  const activeType = types.find((type) => type.id === typeId) ?? types[0];
+
+  if (types.length === 0) {
+    return (
+      <div className="space-y-3">
+        <h2 className="font-heading text-section">Nytt prosjekt</h2>
+        <p className="text-sm text-muted-foreground">
+          Du må definere minst én prosjekttype før du kan opprette prosjekter.
+        </p>
+        <Button asChild>
+          <Link href={`/w/${slug}/settings/prosjekttyper`}>
+            Sett opp prosjekttyper
+          </Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <form action={createProject} className="flex w-full flex-col gap-4">
       <input type="hidden" name="workspace_slug" value={slug} />
+      <input type="hidden" name="project_type_id" value={activeType?.id ?? ""} />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="min-w-0 space-y-2">
           <Label htmlFor="name">Nytt prosjekt</Label>
@@ -39,24 +58,27 @@ export function CreateProjectForm({
           />
         </div>
         <div className="min-w-0 space-y-2">
-          <Label htmlFor="customer_name">Kunde (firma)</Label>
+          <Label htmlFor="estimated_hours">Estimerte timer</Label>
           <Input
-            id="customer_name"
-            name="customer_name"
-            required
-            placeholder="F.eks. Fjellsport AS"
+            id="estimated_hours"
+            name="estimated_hours"
+            type="number"
+            min="0"
+            step="0.5"
+            placeholder="Valgfritt"
             className="h-10"
           />
         </div>
       </div>
+
       <fieldset className="space-y-2">
         <legend className="text-sm font-medium">Type</legend>
         <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {PROJECT_TYPES.map((option) => {
-            const selected = option === type;
+          {types.map((type) => {
+            const selected = type.id === activeType?.id;
             return (
               <label
-                key={option}
+                key={type.id}
                 className={cn(
                   "cursor-pointer rounded-xl border bg-card px-3 py-2.5 text-sm font-medium transition-shadow",
                   selected
@@ -66,88 +88,38 @@ export function CreateProjectForm({
               >
                 <input
                   type="radio"
-                  name="type"
-                  value={option}
+                  name="project_type_choice"
+                  value={type.id}
                   checked={selected}
                   onChange={() => {
-                    setType(option);
+                    setTypeId(type.id);
                   }}
                   className="sr-only"
                 />
-                {PROJECT_TYPE_LABELS[option]}
+                {type.name}
               </label>
             );
           })}
         </div>
       </fieldset>
 
-      <button
-        type="button"
-        onClick={() => {
-          setShowOptional((current) => !current);
-        }}
-        className="flex items-center gap-1.5 self-start text-sm text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <ChevronDown
-          className={cn(
-            "size-4 transition-transform",
-            showOptional && "rotate-180"
-          )}
+      {activeType ? (
+        <DynamicProjectFields
+          key={activeType.id}
+          idPrefix={`new-${activeType.id}`}
+          fields={activeType.fields}
+          values={EMPTY_VALUES}
         />
-        Flere detaljer (valgfritt)
-      </button>
-
-      <div className={cn("grid gap-4 sm:grid-cols-2", !showOptional && "hidden")}>
-        <div className="space-y-2">
-          <Label htmlFor="new_contact_name">Kontaktperson</Label>
-          <Input
-            id="new_contact_name"
-            name="contact_name"
-            placeholder="Navn"
-            className="h-10"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="new_contact_email">Kontakt-e-post</Label>
-          <Input
-            id="new_contact_email"
-            name="contact_email"
-            type="email"
-            placeholder="navn@kunde.no"
-            className="h-10"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="new_old_website_url">Gammel nettside</Label>
-          <Input
-            id="new_old_website_url"
-            name="old_website_url"
-            placeholder="https://gammel-side.no"
-            className="h-10"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="new_estimated_hours">Estimerte timer</Label>
-          <Input
-            id="new_estimated_hours"
-            name="estimated_hours"
-            type="number"
-            min="0"
-            step="0.5"
-            placeholder="F.eks. 20"
-            className="h-10"
-          />
-        </div>
-      </div>
+      ) : null}
 
       {error === "invalid" ? (
         <p className="text-sm text-destructive">
-          Gi prosjektet et navn, fyll inn kunde og velg type.
+          Gi prosjektet et navn og velg en type.
         </p>
       ) : null}
-      {error === "email" ? (
+      {error === "fields" ? (
         <p className="text-sm text-destructive">
-          Skriv inn en gyldig kontakt-e-post.
+          Sjekk feltene — noe påkrevd mangler eller har ugyldig format.
         </p>
       ) : null}
       {error === "hours" ? (

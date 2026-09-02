@@ -1,28 +1,23 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { updateProjectDetails } from "@/app/w/[workspace]/projects/actions";
+import { DynamicProjectFields } from "@/components/dynamic-project-fields";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  PROJECT_TYPES,
-  PROJECT_TYPE_LABELS,
-  type ProjectType,
-} from "@/lib/projects";
+import type { ProjectTypeSummary } from "@/lib/project-types";
 import { cn } from "@/lib/utils";
 
 export function ProjectDetailsForm({
   slug,
   projectId,
-  type: initialType,
-  customerName,
-  domain,
-  productionDomain,
-  contactName,
-  contactEmail,
-  oldWebsiteUrl,
+  name,
+  types,
+  currentTypeId,
+  values,
   estimatedHours,
   canEdit,
   saved,
@@ -30,67 +25,51 @@ export function ProjectDetailsForm({
 }: {
   slug: string;
   projectId: string;
-  type: ProjectType;
-  customerName: string;
-  domain: string | null;
-  productionDomain: string | null;
-  contactName: string | null;
-  contactEmail: string | null;
-  oldWebsiteUrl: string | null;
+  name: string;
+  types: ProjectTypeSummary[];
+  currentTypeId: string | null;
+  values: Record<string, string>;
   estimatedHours: number | null;
   canEdit: boolean;
   saved?: boolean;
   error?: string;
 }) {
-  const [type, setType] = useState<ProjectType>(initialType);
+  const [typeId, setTypeId] = useState<string>(
+    currentTypeId ?? types[0]?.id ?? ""
+  );
+  const activeType = types.find((type) => type.id === typeId);
+
+  if (types.length === 0) {
+    return (
+      <div className="space-y-3">
+        <p className="text-sm text-muted-foreground">
+          Dette workspace-et har ingen prosjekttyper ennå, så det finnes ingen
+          felter å redigere.
+        </p>
+        <Button asChild variant="outline">
+          <Link href={`/w/${slug}/settings/prosjekttyper`}>
+            Sett opp prosjekttyper
+          </Link>
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <form action={updateProjectDetails} className="space-y-5">
       <input type="hidden" name="workspace_slug" value={slug} />
       <input type="hidden" name="project_id" value={projectId} />
-      <fieldset className="space-y-2" disabled={!canEdit}>
-        <legend className="text-sm font-medium">Type</legend>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-          {PROJECT_TYPES.map((option) => {
-            const selected = option === type;
-            return (
-              <label
-                key={option}
-                className={cn(
-                  "rounded-xl border bg-card px-3 py-2.5 text-sm font-medium",
-                  canEdit ? "cursor-pointer" : "opacity-70",
-                  selected
-                    ? "border-transparent ring-2 ring-foreground"
-                    : "border-border"
-                )}
-              >
-                <input
-                  type="radio"
-                  name="type"
-                  value={option}
-                  checked={selected}
-                  disabled={!canEdit}
-                  onChange={() => {
-                    setType(option);
-                  }}
-                  className="sr-only"
-                />
-                {PROJECT_TYPE_LABELS[option]}
-              </label>
-            );
-          })}
-        </div>
-      </fieldset>
+      <input type="hidden" name="project_type_id" value={typeId} />
+
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="customer_name">Kunde (firma)</Label>
+          <Label htmlFor="project_name">Prosjektnavn</Label>
           <Input
-            id="customer_name"
-            name="customer_name"
+            id="project_name"
+            name="name"
             required
-            defaultValue={customerName}
+            defaultValue={name}
             disabled={!canEdit}
-            placeholder="F.eks. Fjellsport AS"
             className="h-10"
           />
         </div>
@@ -108,77 +87,71 @@ export function ProjectDetailsForm({
             className="h-10"
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="old_website_url">Gammel nettside</Label>
-          <Input
-            id="old_website_url"
-            name="old_website_url"
-            defaultValue={oldWebsiteUrl ?? ""}
-            disabled={!canEdit}
-            placeholder="https://gammel-side.no"
-            className="h-10"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="domain">Domene</Label>
-          <Input
-            id="domain"
-            name="domain"
-            defaultValue={domain ?? ""}
-            disabled={!canEdit}
-            placeholder="preview.example.com"
-            className="h-10"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="production_domain">Produksjonsdomene</Label>
-          <Input
-            id="production_domain"
-            name="production_domain"
-            defaultValue={productionDomain ?? ""}
-            disabled={!canEdit}
-            placeholder="example.com"
-            className="h-10"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="contact_name">Kontaktperson</Label>
-          <Input
-            id="contact_name"
-            name="contact_name"
-            defaultValue={contactName ?? ""}
-            disabled={!canEdit}
-            className="h-10"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="contact_email">Kontakt-e-post</Label>
-          <Input
-            id="contact_email"
-            name="contact_email"
-            type="email"
-            defaultValue={contactEmail ?? ""}
-            disabled={!canEdit}
-            className="h-10"
-          />
-        </div>
       </div>
+
+      <fieldset className="space-y-2" disabled={!canEdit}>
+        <legend className="text-sm font-medium">Type</legend>
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          {types.map((type) => {
+            const selected = type.id === typeId;
+            return (
+              <label
+                key={type.id}
+                className={cn(
+                  "rounded-xl border bg-card px-3 py-2.5 text-sm font-medium",
+                  canEdit ? "cursor-pointer" : "opacity-70",
+                  selected
+                    ? "border-transparent ring-2 ring-foreground"
+                    : "border-border"
+                )}
+              >
+                <input
+                  type="radio"
+                  name="project_type_choice"
+                  value={type.id}
+                  checked={selected}
+                  disabled={!canEdit}
+                  onChange={() => {
+                    setTypeId(type.id);
+                  }}
+                  className="sr-only"
+                />
+                {type.name}
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      {activeType ? (
+        <DynamicProjectFields
+          key={activeType.id}
+          idPrefix={`details-${activeType.id}`}
+          fields={activeType.fields}
+          values={values}
+          disabled={!canEdit}
+        />
+      ) : null}
+
       {saved ? (
         <p className="text-sm text-workspace-accent">Detaljene er lagret.</p>
       ) : null}
       {error === "invalid" ? (
         <p className="text-sm text-destructive">
-          Fyll inn kundenavn og velg en gyldig prosjekttype.
+          Gi prosjektet et navn og velg en gyldig type.
         </p>
       ) : null}
-      {error === "email" ? (
-        <p className="text-sm text-destructive">Skriv inn en gyldig e-post.</p>
+      {error === "fields" ? (
+        <p className="text-sm text-destructive">
+          Sjekk feltene — noe påkrevd mangler eller har ugyldig format.
+        </p>
       ) : null}
       {error === "hours" ? (
         <p className="text-sm text-destructive">
           Timeestimatet må være et positivt tall.
         </p>
       ) : null}
+
       {canEdit ? (
         <Button type="submit">Lagre detaljer</Button>
       ) : (

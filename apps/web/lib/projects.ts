@@ -1,23 +1,3 @@
-export const PROJECT_TYPES = [
-  "custom_website",
-  "landing_page",
-  "graphic",
-  "other",
-] as const;
-
-export type ProjectType = (typeof PROJECT_TYPES)[number];
-
-export const PROJECT_TYPE_LABELS: Record<ProjectType, string> = {
-  custom_website: "Custom nettside",
-  landing_page: "Landingsside",
-  graphic: "Grafisk",
-  other: "Annet",
-};
-
-export function isProjectType(value: string): value is ProjectType {
-  return (PROJECT_TYPES as readonly string[]).includes(value);
-}
-
 export const PROJECT_STAGES = [
   "new",
   "kickoff",

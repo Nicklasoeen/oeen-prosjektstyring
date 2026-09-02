@@ -33,14 +33,18 @@ import {
   osloStartOfDay,
   todayInOslo,
 } from "@/lib/format";
+import { customerLabel, parseCustomFields } from "@/lib/project-types";
 import { cn } from "@/lib/utils";
 
 type ProjectRow = {
   id: string;
   name: string;
   stage: string;
-  type: "custom_website" | "landing_page" | "graphic" | "other";
+  project_type_id: string | null;
+  custom_fields: unknown;
 };
+
+type ProjectTypeRow = { id: string; name: string };
 
 type TaskRow = {
   id: string;
@@ -68,13 +72,6 @@ type TimeEntryRow = {
   ended_at: string | null;
 };
 
-const PROJECT_TYPE_LABELS: Record<ProjectRow["type"], string> = {
-  custom_website: "Nettside",
-  landing_page: "Landingsside",
-  graphic: "Grafisk",
-  other: "Annet",
-};
-
 export default async function WorkspaceDashboardPage({
   params,
 }: {
@@ -97,10 +94,11 @@ export default async function WorkspaceDashboardPage({
     credentialResult,
     timeEntriesResult,
     profileResult,
+    projectTypesResult,
   ] = await Promise.all([
     supabase
       .from("projects")
-      .select("id, name, stage, type")
+      .select("id, name, stage, project_type_id, custom_fields")
       .eq("workspace_id", workspace.id)
       .order("created_at", { ascending: false })
       .returns<ProjectRow[]>(),
@@ -134,6 +132,11 @@ export default async function WorkspaceDashboardPage({
       .select("name")
       .eq("id", userId)
       .maybeSingle<{ name: string }>(),
+    supabase
+      .from("project_types")
+      .select("id, name")
+      .eq("workspace_id", workspace.id)
+      .returns<ProjectTypeRow[]>(),
   ]);
 
   if (projectsResult.error) {
@@ -151,7 +154,13 @@ export default async function WorkspaceDashboardPage({
   if (timeEntriesResult.error) {
     throw timeEntriesResult.error;
   }
+  if (projectTypesResult.error) {
+    throw projectTypesResult.error;
+  }
 
+  const typeNameById = new Map(
+    (projectTypesResult.data ?? []).map((row) => [row.id, row.name])
+  );
   const projects = projectsResult.data ?? [];
   const tasks = tasksResult.data ?? [];
   const activity = activityResult.data ?? [];
@@ -388,7 +397,16 @@ export default async function WorkspaceDashboardPage({
                             {project.name}
                           </h3>
                           <p className="mt-0.5 text-label text-muted-foreground">
-                            {PROJECT_TYPE_LABELS[project.type]}
+                            {[
+                              project.project_type_id
+                                ? typeNameById.get(project.project_type_id)
+                                : undefined,
+                              customerLabel(
+                                parseCustomFields(project.custom_fields)
+                              ),
+                            ]
+                              .filter((part): part is string => Boolean(part))
+                              .join(" · ") || "Uten type"}
                           </p>
                         </div>
                       </div>

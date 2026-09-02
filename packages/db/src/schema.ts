@@ -39,6 +39,10 @@ export const projectStageEnum = pgEnum("project_stage", [
   "completed",
 ]);
 
+/**
+ * Legacy fixed project types. Superseded by the workspace-configurable
+ * `project_types` table; the column is dropped in a follow-up migration.
+ */
 export const projectTypeEnum = pgEnum("project_type", [
   "custom_website",
   "landing_page",
@@ -205,6 +209,73 @@ export const workspaceMembers = pgTable(
   ]
 );
 
+/** Field definitions rendered dynamically on project forms. */
+export type ProjectFieldSchema = Array<{
+  key: string;
+  label: string;
+  type: "text" | "textarea" | "email" | "url" | "number" | "date" | "select";
+  required?: boolean;
+  options?: string[];
+}>;
+
+export const projectTypes = pgTable(
+  "project_types",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    workspaceId: uuid("workspace_id").notNull(),
+    name: text("name").notNull(),
+    fieldSchema: jsonb("field_schema")
+      .$type<ProjectFieldSchema>()
+      .notNull()
+      .default([]),
+    checklistTemplate: jsonb("checklist_template")
+      .$type<string[]>()
+      .notNull()
+      .default([]),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: timestamp("created_at", { withTimezone: true, mode: "date" })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    uniqueIndex("project_types_id_workspace_id_idx").on(
+      table.id,
+      table.workspaceId
+    ),
+    uniqueIndex("project_types_workspace_id_name_idx").on(
+      table.workspaceId,
+      table.name
+    ),
+    index("project_types_workspace_id_idx").on(table.workspaceId),
+    foreignKey({
+      columns: [table.workspaceId],
+      foreignColumns: [workspaces.id],
+      name: "project_types_workspace_id_fk",
+    }).onDelete("cascade"),
+    pgPolicy("project_types_select_members", {
+      for: "select",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+    }),
+    pgPolicy("project_types_insert_members", {
+      for: "insert",
+      to: authenticatedRole,
+      withCheck: isWorkspaceMember(table.workspaceId),
+    }),
+    pgPolicy("project_types_update_members", {
+      for: "update",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+      withCheck: isWorkspaceMember(table.workspaceId),
+    }),
+    pgPolicy("project_types_delete_members", {
+      for: "delete",
+      to: authenticatedRole,
+      using: isWorkspaceMember(table.workspaceId),
+    }),
+  ]
+);
+
 export const projects = pgTable(
   "projects",
   {
@@ -212,14 +283,12 @@ export const projects = pgTable(
     workspaceId: uuid("workspace_id").notNull(),
     name: text("name").notNull(),
     stage: projectStageEnum("stage").notNull().default("new"),
-    type: projectTypeEnum("type").notNull().default("other"),
-    /** The client company — distinct from the contact person. */
-    customerName: text("customer_name").notNull().default(""),
-    contactName: text("contact_name"),
-    contactEmail: text("contact_email"),
-    oldWebsiteUrl: text("old_website_url"),
-    domain: text("domain"),
-    productionDomain: text("production_domain"),
+    projectTypeId: uuid("project_type_id"),
+    /** Values keyed by the owning project type's field_schema keys. */
+    customFields: jsonb("custom_fields")
+      .$type<Record<string, string>>()
+      .notNull()
+      .default({}),
     estimatedHours: numeric("estimated_hours", {
       precision: 7,
       scale: 2,
@@ -232,11 +301,18 @@ export const projects = pgTable(
   (table) => [
     uniqueIndex("projects_id_workspace_id_idx").on(table.id, table.workspaceId),
     index("projects_workspace_id_idx").on(table.workspaceId),
+    index("projects_project_type_id_idx").on(table.projectTypeId),
     foreignKey({
       columns: [table.workspaceId],
       foreignColumns: [workspaces.id],
       name: "projects_workspace_id_fk",
     }).onDelete("cascade"),
+    // Restrict: a type in use must be reassigned before it can be deleted.
+    foreignKey({
+      columns: [table.projectTypeId, table.workspaceId],
+      foreignColumns: [projectTypes.id, projectTypes.workspaceId],
+      name: "projects_project_type_id_workspace_id_fk",
+    }).onDelete("restrict"),
     pgPolicy("projects_select_members", {
       for: "select",
       to: authenticatedRole,

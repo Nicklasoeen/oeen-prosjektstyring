@@ -30,30 +30,37 @@ import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
 import { formatLoggedDuration } from "@/lib/format";
 import {
   isProjectStage,
-  isProjectType,
   isTaskCategory,
   isTaskPriority,
   isTaskStatus,
   PRODUCTION_CATEGORIES,
-  PROJECT_TYPE_LABELS,
   resolveProjectTab,
   TASK_CATEGORY_LABELS,
   type ProjectStage,
-  type ProjectType,
 } from "@/lib/projects";
+import {
+  customerLabel,
+  parseChecklistTemplate,
+  parseCustomFields,
+  parseFieldSchema,
+  type ProjectTypeSummary,
+} from "@/lib/project-types";
 
 type ProjectRow = {
   id: string;
   name: string;
   stage: string;
-  type: string;
-  customer_name: string;
-  contact_name: string | null;
-  contact_email: string | null;
-  old_website_url: string | null;
-  domain: string | null;
-  production_domain: string | null;
+  project_type_id: string | null;
+  custom_fields: unknown;
   estimated_hours: string | number | null;
+};
+
+type TypeRow = {
+  id: string;
+  name: string;
+  field_schema: unknown;
+  checklist_template: unknown;
+  sort_order: number;
 };
 
 type TaskRow = {
@@ -101,22 +108,44 @@ export default async function ProjectDetailPage({
   );
   const canEdit = canEditWorkspace(workspace.role);
 
-  const { data: project } = await supabase
-    .from("projects")
-    .select(
-      "id, name, stage, type, customer_name, contact_name, contact_email, old_website_url, domain, production_domain, estimated_hours"
-    )
-    .eq("id", projectId)
-    .eq("workspace_id", workspace.id)
-    .maybeSingle<ProjectRow>();
+  const [{ data: project }, typesResult] = await Promise.all([
+    supabase
+      .from("projects")
+      .select(
+        "id, name, stage, project_type_id, custom_fields, estimated_hours"
+      )
+      .eq("id", projectId)
+      .eq("workspace_id", workspace.id)
+      .maybeSingle<ProjectRow>(),
+    supabase
+      .from("project_types")
+      .select("id, name, field_schema, checklist_template, sort_order")
+      .eq("workspace_id", workspace.id)
+      .order("sort_order", { ascending: true })
+      .returns<TypeRow[]>(),
+  ]);
 
   if (!project) {
     redirect(`/w/${slug}/projects`);
   }
+  if (typesResult.error) {
+    throw typesResult.error;
+  }
 
-  const projectType: ProjectType = isProjectType(project.type)
-    ? project.type
-    : "other";
+  const projectTypes: ProjectTypeSummary[] = (typesResult.data ?? []).map(
+    (row) => ({
+      id: row.id,
+      name: row.name,
+      fields: parseFieldSchema(row.field_schema),
+      checklist: parseChecklistTemplate(row.checklist_template),
+      sortOrder: row.sort_order,
+    })
+  );
+  const activeType = projectTypes.find(
+    (type) => type.id === project.project_type_id
+  );
+  const customFields = parseCustomFields(project.custom_fields);
+  const customer = customerLabel(customFields);
   const projectStage: ProjectStage = isProjectStage(project.stage)
     ? project.stage
     : "new";
@@ -321,10 +350,8 @@ export default async function ProjectDetailPage({
             >
               Prosjekter
             </Link>
-            <span> · {PROJECT_TYPE_LABELS[projectType]}</span>
-            {project.customer_name ? (
-              <span> · {project.customer_name}</span>
-            ) : null}
+            <span> · {activeType?.name ?? "Uten type"}</span>
+            {customer ? <span> · {customer}</span> : null}
           </>
         }
         actions={
@@ -523,18 +550,15 @@ export default async function ProjectDetailPage({
           <ProjectDetailsForm
             slug={slug}
             projectId={project.id}
-            type={projectType}
-            customerName={project.customer_name}
-            domain={project.domain}
-            productionDomain={project.production_domain}
-            contactName={project.contact_name}
-            contactEmail={project.contact_email}
-            oldWebsiteUrl={project.old_website_url}
+            name={project.name}
+            types={projectTypes}
+            currentTypeId={project.project_type_id}
+            values={customFields}
             estimatedHours={estimatedHours}
             canEdit={canEdit}
             saved={saved === "1"}
             error={
-              error === "invalid" || error === "email" || error === "hours"
+              error === "invalid" || error === "fields" || error === "hours"
                 ? error
                 : undefined
             }

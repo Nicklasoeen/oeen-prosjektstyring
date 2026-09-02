@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import {
   deleteAnthropicKey,
   leaveWorkspace,
@@ -126,6 +128,21 @@ export default async function SettingsPage({
           ) : null}
         </Surface>
       </div>
+
+      <Surface className="flex flex-col gap-4 p-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <h2 className="font-heading text-section">Prosjekttyper</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Bestem hvilke felter og sjekkpunkter nye prosjekter får. Gjelder
+            bare dette workspace-et.
+          </p>
+        </div>
+        <Button asChild variant="outline">
+          <Link href={`/w/${slug}/settings/prosjekttyper`}>
+            Forvalt prosjekttyper
+          </Link>
+        </Button>
+      </Surface>
 
       <Surface className="space-y-6 p-6">
         <h2 className="font-heading text-section">Fareområde</h2>
