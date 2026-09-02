@@ -62,12 +62,6 @@ export const TASK_CATEGORY_LABELS: Record<TaskCategory, string> = {
   other: "Annet",
 };
 
-/** Categories whose logged time counts toward the production-hour estimate. */
-export const PRODUCTION_CATEGORIES: readonly TaskCategory[] = [
-  "design",
-  "development",
-];
-
 export function isTaskCategory(value: string): value is TaskCategory {
   return (TASK_CATEGORIES as readonly string[]).includes(value);
 }

@@ -52,7 +52,7 @@ export const taskPriorityEnum = pgEnum("task_priority", [
   "urgent",
 ]);
 
-/** Only 'design' and 'development' time counts toward production-hour estimates. */
+/** Visual tag on kanban cards. Not used to compute logged hours. */
 export const taskCategoryEnum = pgEnum("task_category", [
   "design",
   "development",
@@ -530,7 +530,8 @@ export const timeEntries = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     workspaceId: uuid("workspace_id").notNull(),
-    taskId: uuid("task_id").notNull(),
+    projectId: uuid("project_id").notNull(),
+    taskId: uuid("task_id"),
     userId: uuid("user_id").notNull(),
     startedAt: timestamp("started_at", { withTimezone: true, mode: "date" })
       .defaultNow()
@@ -539,6 +540,7 @@ export const timeEntries = pgTable(
     note: text("note"),
   },
   (table) => [
+    index("time_entries_project_id_idx").on(table.projectId),
     index("time_entries_task_id_idx").on(table.taskId),
     index("time_entries_workspace_id_idx").on(table.workspaceId),
     index("time_entries_user_id_idx").on(table.userId),
@@ -546,10 +548,16 @@ export const timeEntries = pgTable(
       .on(table.userId)
       .where(sql`${table.endedAt} is null`),
     foreignKey({
-      columns: [table.taskId, table.workspaceId],
-      foreignColumns: [tasks.id, tasks.workspaceId],
-      name: "time_entries_task_id_workspace_id_fk",
+      columns: [table.projectId, table.workspaceId],
+      foreignColumns: [projects.id, projects.workspaceId],
+      name: "time_entries_project_id_workspace_id_fk",
     }).onDelete("cascade"),
+    // Separate FK so ON DELETE SET NULL does not null out workspace_id.
+    foreignKey({
+      columns: [table.taskId],
+      foreignColumns: [tasks.id],
+      name: "time_entries_task_id_fk",
+    }).onDelete("set null"),
     foreignKey({
       columns: [table.userId],
       foreignColumns: [users.id],

@@ -7,11 +7,8 @@ import { ProgressBar } from "@/components/progress-bar";
 import { Surface, surfaceClass } from "@/components/surface";
 import { Button } from "@/components/ui/button";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
-import { formatHoursNb } from "@/lib/format";
-import {
-  isProductionCategory,
-  productionSeconds,
-} from "@/lib/production-hours";
+import { formatHoursNb, formatLoggedDuration } from "@/lib/format";
+import { loggedSeconds } from "@/lib/production-hours";
 import { requestClock } from "@/lib/request-clock";
 import { cn } from "@/lib/utils";
 
@@ -22,10 +19,8 @@ type ProjectRow = {
   estimated_hours: string | number | null;
 };
 
-type TaskRow = { id: string; project_id: string; category: string };
-
 type TimeRow = {
-  task_id: string;
+  project_id: string;
   started_at: string;
   ended_at: string | null;
 };
@@ -44,29 +39,21 @@ export default async function TimeoversiktPage({
   const now = await requestClock();
   const nowMs = now.getTime();
 
-  const [projectsResult, tasksResult, timeResult] = await Promise.all([
+  const [projectsResult, timeResult] = await Promise.all([
     supabase
       .from("projects")
       .select("id, name, stage, estimated_hours")
       .eq("workspace_id", workspace.id)
       .returns<ProjectRow[]>(),
     supabase
-      .from("tasks")
-      .select("id, project_id, category")
-      .eq("workspace_id", workspace.id)
-      .returns<TaskRow[]>(),
-    supabase
       .from("time_entries")
-      .select("task_id, started_at, ended_at")
+      .select("project_id, started_at, ended_at")
       .eq("workspace_id", workspace.id)
       .returns<TimeRow[]>(),
   ]);
 
   if (projectsResult.error) {
     throw projectsResult.error;
-  }
-  if (tasksResult.error) {
-    throw tasksResult.error;
   }
   if (timeResult.error) {
     throw timeResult.error;
@@ -76,47 +63,35 @@ export default async function TimeoversiktPage({
     (project) => project.stage !== "completed"
   );
   const activeIds = new Set(activeProjects.map((project) => project.id));
-  const projectIdByTaskId = new Map<string, string>();
-  const categoryByTaskId = new Map<string, string>();
-  for (const task of tasksResult.data ?? []) {
-    if (!activeIds.has(task.project_id)) {
-      continue;
-    }
-    projectIdByTaskId.set(task.id, task.project_id);
-    categoryByTaskId.set(task.id, task.category);
-  }
 
   const entriesByProject = new Map<string, TimeRow[]>();
   for (const entry of timeResult.data ?? []) {
-    const projectId = projectIdByTaskId.get(entry.task_id);
-    const category = categoryByTaskId.get(entry.task_id);
-    if (!projectId || !category || !isProductionCategory(category)) {
+    if (!activeIds.has(entry.project_id)) {
       continue;
     }
-    const list = entriesByProject.get(projectId) ?? [];
+    const list = entriesByProject.get(entry.project_id) ?? [];
     list.push(entry);
-    entriesByProject.set(projectId, list);
+    entriesByProject.set(entry.project_id, list);
   }
 
   const rows = activeProjects
     .map((project) => {
       const estimated = parseEstimatedHours(project.estimated_hours);
-      const loggedHours =
-        productionSeconds(
-          entriesByProject.get(project.id) ?? [],
-          categoryByTaskId,
-          nowMs
-        ) / 3600;
+      const seconds = loggedSeconds(
+        entriesByProject.get(project.id) ?? [],
+        nowMs
+      );
       return {
         id: project.id,
         name: project.name,
         estimated,
-        loggedHours,
+        loggedHours: seconds / 3600,
+        loggedLabel: formatLoggedDuration(seconds),
       };
     })
     .sort((a, b) => b.loggedHours - a.loggedHours);
 
-  const loggedTotal = rows.reduce((sum, row) => sum + row.loggedHours, 0);
+  const loggedTotalHours = rows.reduce((sum, row) => sum + row.loggedHours, 0);
   const estimatedTotal = rows.reduce(
     (sum, row) => sum + (row.estimated ?? 0),
     0
@@ -135,10 +110,7 @@ export default async function TimeoversiktPage({
             >
               Dashboard
             </Link>
-            <span>
-              {" "}
-              · Produksjonstimer på aktive prosjekter (design og utvikling).
-            </span>
+            <span> · Førte timer på aktive prosjekter.</span>
           </>
         }
       />
@@ -146,7 +118,7 @@ export default async function TimeoversiktPage({
       {activeProjects.length === 0 ? (
         <EmptyState
           title="Ingen aktive prosjekter"
-          description="Opprett et prosjekt og før timer på design- eller utviklingsoppgaver for å fylle oversikten."
+          description="Opprett et prosjekt og start timern for å fylle oversikten."
         >
           <Button asChild>
             <Link href={`/w/${slug}/projects#nytt`}>Nytt prosjekt</Link>
@@ -164,29 +136,29 @@ export default async function TimeoversiktPage({
               </span>
             </div>
             <p className="mt-3 font-heading text-display tabular-nums">
-              {formatHoursNb(loggedTotal)}
+              {formatLoggedDuration(loggedTotalHours * 3600)}
               <span className="text-base font-medium text-muted-foreground">
                 {estimatedTotal > 0
                   ? ` av ${formatHoursNb(estimatedTotal)} t`
-                  : " t"}
+                  : ""}
               </span>
             </p>
             {estimatedTotal > 0 ? (
               <>
                 <ProgressBar
-                  value={(loggedTotal / estimatedTotal) * 100}
+                  value={(loggedTotalHours / estimatedTotal) * 100}
                   className="mt-3"
                 />
                 <p
                   className={
-                    loggedTotal > estimatedTotal
+                    loggedTotalHours > estimatedTotal
                       ? "mt-2 text-label font-medium text-destructive"
                       : "mt-2 text-label text-muted-foreground"
                   }
                 >
-                  {loggedTotal > estimatedTotal
-                    ? `${formatHoursNb(loggedTotal - estimatedTotal)} t over samlet estimat`
-                    : `${formatHoursNb(estimatedTotal - loggedTotal)} t igjen av samlet estimat`}
+                  {loggedTotalHours > estimatedTotal
+                    ? `${formatLoggedDuration((loggedTotalHours - estimatedTotal) * 3600)} over samlet estimat`
+                    : `${formatLoggedDuration((estimatedTotal - loggedTotalHours) * 3600)} igjen av samlet estimat`}
                   {missingEstimate > 0
                     ? ` · ${missingEstimate} uten estimat`
                     : ""}
@@ -198,10 +170,6 @@ export default async function TimeoversiktPage({
                 under Detaljer.
               </p>
             )}
-            <p className="mt-3 border-t border-border pt-3 font-mono text-label text-muted-foreground">
-              Kun oppgaver merket design eller utvikling teller. Annet trekkes
-              ut.
-            </p>
           </Surface>
 
           <ul className="grid gap-3">
@@ -220,7 +188,7 @@ export default async function TimeoversiktPage({
                         {row.name}
                       </h2>
                       <p className="mt-1 font-mono text-label tabular-nums text-muted-foreground">
-                        {formatHoursNb(row.loggedHours)} t ført
+                        {row.loggedLabel} ført
                         {row.estimated !== null
                           ? ` av ${formatHoursNb(row.estimated)} t`
                           : " · uten estimat"}

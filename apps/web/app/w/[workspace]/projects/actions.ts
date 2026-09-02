@@ -49,6 +49,13 @@ function revalidateProject(slug: string, projectId: string) {
   revalidatePath(projectPath(slug, projectId));
   revalidatePath(`/w/${slug}/projects`);
   revalidatePath(`/w/${slug}/dashboard`);
+  revalidatePath(`/w/${slug}/timeoversikt`);
+}
+
+function revalidateWorkspaceTimer(slug: string) {
+  revalidatePath(`/w/${slug}`, "layout");
+  revalidatePath(`/w/${slug}/dashboard`);
+  revalidatePath(`/w/${slug}/timeoversikt`);
 }
 
 export async function createProject(formData: FormData) {
@@ -685,25 +692,28 @@ export async function toggleTaskAssignee(formData: FormData) {
   revalidateProject(slug, projectId);
 }
 
-export async function toggleTaskTimer(formData: FormData) {
+export async function toggleProjectTimer(formData: FormData) {
   const slug = String(formData.get("workspace_slug") ?? "");
   const projectId = String(formData.get("project_id") ?? "");
-  const taskId = String(formData.get("task_id") ?? "");
   const intent = String(formData.get("intent") ?? "");
 
   const { userId, workspace, supabase } = await requireWorkspaceAccess(
     slug,
-    projectPath(slug, projectId, "oppgaver")
+    projectPath(slug, projectId)
   );
 
-  const { data: task } = await supabase
-    .from("tasks")
-    .select("id, project_id")
-    .eq("id", taskId)
-    .eq("workspace_id", workspace.id)
-    .maybeSingle();
+  if (!canEditWorkspace(workspace.role)) {
+    redirect("/unauthorized");
+  }
 
-  if (!task || task.project_id !== projectId) {
+  const { data: project } = await supabase
+    .from("projects")
+    .select("id")
+    .eq("id", projectId)
+    .eq("workspace_id", workspace.id)
+    .maybeSingle<{ id: string }>();
+
+  if (!project) {
     redirect("/unauthorized");
   }
 
@@ -711,7 +721,7 @@ export async function toggleTaskTimer(formData: FormData) {
     const { data: stopped, error } = await supabase
       .from("time_entries")
       .update({ ended_at: new Date().toISOString() })
-      .eq("task_id", task.id)
+      .eq("project_id", project.id)
       .eq("workspace_id", workspace.id)
       .eq("user_id", userId)
       .is("ended_at", null)
@@ -731,20 +741,47 @@ export async function toggleTaskTimer(formData: FormData) {
         action: "timer.stopped",
       });
     }
-  } else {
-    const { data: stoppedOthers, error: stopError } = await supabase
-      .from("time_entries")
-      .update({ ended_at: new Date().toISOString() })
-      .eq("user_id", userId)
-      .is("ended_at", null)
-      .select("id, workspace_id")
-      .returns<Array<{ id: string; workspace_id: string }>>();
 
-    if (stopError) {
-      throw stopError;
-    }
+    revalidateProject(slug, projectId);
+    revalidateWorkspaceTimer(slug);
+    redirect(projectPath(slug, projectId));
+  }
 
-    for (const row of stoppedOthers ?? []) {
+  const { data: openEntries, error: openError } = await supabase
+    .from("time_entries")
+    .select("id, project_id, workspace_id")
+    .eq("user_id", userId)
+    .is("ended_at", null)
+    .returns<Array<{ id: string; project_id: string; workspace_id: string }>>();
+
+  if (openError) {
+    throw openError;
+  }
+
+  const alreadyHere = (openEntries ?? []).find(
+    (row) => row.project_id === project.id && row.workspace_id === workspace.id
+  );
+  if (alreadyHere) {
+    revalidateProject(slug, projectId);
+    revalidateWorkspaceTimer(slug);
+    redirect(projectPath(slug, projectId));
+  }
+
+  let stoppedName: string | null = null;
+  if ((openEntries ?? []).length > 0) {
+    const endedAt = new Date().toISOString();
+    for (const row of openEntries ?? []) {
+      const { error: stopError } = await supabase
+        .from("time_entries")
+        .update({ ended_at: endedAt })
+        .eq("id", row.id)
+        .eq("user_id", userId)
+        .is("ended_at", null);
+
+      if (stopError) {
+        throw stopError;
+      }
+
       await logActivity(supabase, {
         workspaceId: row.workspace_id,
         userId,
@@ -754,32 +791,68 @@ export async function toggleTaskTimer(formData: FormData) {
       });
     }
 
-    const { data: started, error: startError } = await supabase
-      .from("time_entries")
-      .insert({
-        workspace_id: workspace.id,
-        task_id: task.id,
-        user_id: userId,
-        started_at: new Date().toISOString(),
-      })
-      .select("id")
-      .maybeSingle<{ id: string }>();
-
-    if (startError || !started) {
-      throw startError ?? new Error("Kunne ikke starte timer");
+    const stopped = openEntries?.[0];
+    if (stopped) {
+      const { data: stoppedProject } = await supabase
+        .from("projects")
+        .select("name")
+        .eq("id", stopped.project_id)
+        .maybeSingle<{ name: string }>();
+      stoppedName = stoppedProject?.name ?? null;
     }
 
-    await logActivity(supabase, {
-      workspaceId: workspace.id,
-      userId,
-      entityType: "time_entry",
-      entityId: started.id,
-      action: "timer.started",
-    });
+    const stoppedWorkspaceIds = [
+      ...new Set((openEntries ?? []).map((row) => row.workspace_id)),
+    ];
+    const { data: stoppedWorkspaces } = await supabase
+      .from("workspaces")
+      .select("id, slug")
+      .in("id", stoppedWorkspaceIds)
+      .returns<Array<{ id: string; slug: string }>>();
+    const slugById = new Map(
+      (stoppedWorkspaces ?? []).map((row) => [row.id, row.slug])
+    );
+    for (const row of openEntries ?? []) {
+      const rowSlug = slugById.get(row.workspace_id);
+      if (rowSlug) {
+        revalidateProject(rowSlug, row.project_id);
+        revalidateWorkspaceTimer(rowSlug);
+      }
+    }
   }
 
+  const { data: started, error: startError } = await supabase
+    .from("time_entries")
+    .insert({
+      workspace_id: workspace.id,
+      project_id: project.id,
+      task_id: null,
+      user_id: userId,
+      started_at: new Date().toISOString(),
+    })
+    .select("id")
+    .maybeSingle<{ id: string }>();
+
+  if (startError || !started) {
+    throw startError ?? new Error("Kunne ikke starte timer");
+  }
+
+  await logActivity(supabase, {
+    workspaceId: workspace.id,
+    userId,
+    entityType: "time_entry",
+    entityId: started.id,
+    action: "timer.started",
+  });
+
   revalidateProject(slug, projectId);
-  revalidatePath(`/w/${slug}`, "layout");
+  revalidateWorkspaceTimer(slug);
+
+  const next = projectPath(slug, projectId);
+  if (stoppedName) {
+    redirect(`${next}?stopped=${encodeURIComponent(stoppedName)}`);
+  }
+  redirect(next);
 }
 
 export async function stopRunningTimer(formData: FormData) {
@@ -794,12 +867,27 @@ export async function stopRunningTimer(formData: FormData) {
     .update({ ended_at: new Date().toISOString() })
     .eq("user_id", userId)
     .is("ended_at", null)
-    .select("id, workspace_id")
-    .returns<Array<{ id: string; workspace_id: string }>>();
+    .select("id, workspace_id, project_id")
+    .returns<Array<{ id: string; workspace_id: string; project_id: string }>>();
 
   if (error) {
     throw error;
   }
+
+  const workspaceIds = [
+    ...new Set((stopped ?? []).map((row) => row.workspace_id)),
+  ];
+  const { data: workspaceRows } =
+    workspaceIds.length > 0
+      ? await supabase
+          .from("workspaces")
+          .select("id, slug")
+          .in("id", workspaceIds)
+          .returns<Array<{ id: string; slug: string }>>()
+      : { data: [] as Array<{ id: string; slug: string }> };
+  const slugByWorkspaceId = new Map(
+    (workspaceRows ?? []).map((row) => [row.id, row.slug])
+  );
 
   for (const row of stopped ?? []) {
     await logActivity(supabase, {
@@ -809,10 +897,12 @@ export async function stopRunningTimer(formData: FormData) {
       entityId: row.id,
       action: "timer.stopped",
     });
+    const rowSlug = slugByWorkspaceId.get(row.workspace_id) ?? slug;
+    revalidateProject(rowSlug, row.project_id);
+    revalidateWorkspaceTimer(rowSlug);
   }
 
-  revalidatePath(`/w/${slug}`, "layout");
-  revalidatePath(`/w/${slug}/dashboard`);
+  revalidateWorkspaceTimer(slug);
 }
 
 /** Returns null for empty input, undefined for invalid input. */

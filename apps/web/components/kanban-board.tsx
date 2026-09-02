@@ -17,7 +17,6 @@ import {
 
 import {
   toggleTaskAssignee,
-  toggleTaskTimer,
   updateTaskBoard,
   updateTaskCategory,
 } from "@/app/w/[workspace]/projects/actions";
@@ -58,7 +57,6 @@ export type KanbanTask = {
   priority: TaskPriority;
   due_date: string | null;
   assigneeIds: string[];
-  running: boolean;
 };
 
 const CATEGORY_DOTS: Record<TaskCategory, string> = {
@@ -368,23 +366,6 @@ function TaskCard({
               })}
             </DropdownMenuContent>
           </DropdownMenu>
-          <form action={toggleTaskTimer}>
-            <input type="hidden" name="workspace_slug" value={slug} />
-            <input type="hidden" name="project_id" value={projectId} />
-            <input type="hidden" name="task_id" value={task.id} />
-            <input
-              type="hidden"
-              name="intent"
-              value={task.running ? "stop" : "start"}
-            />
-            <Button
-              type="submit"
-              variant={task.running ? "destructive" : "ghost"}
-              size="sm"
-            >
-              {task.running ? "Stopp" : "Start"}
-            </Button>
-          </form>
         </div>
       ) : null}
     </li>

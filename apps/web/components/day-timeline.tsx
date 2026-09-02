@@ -6,8 +6,8 @@ import { cn } from "@/lib/utils";
 
 export type TimelineEntry = {
   id: string;
-  taskId: string;
-  taskTitle: string;
+  projectId: string;
+  projectName: string;
   startedAt: string;
   endedAt: string | null;
 };
@@ -23,7 +23,7 @@ type Bar = {
 };
 
 type Row = {
-  taskId: string;
+  projectId: string;
   title: string;
   bars: Bar[];
   totalMs: number;
@@ -41,7 +41,7 @@ export function DayTimeline({
   const dayEndMs = dayStartMs + DAY_MS;
   const clamp = (ms: number) => Math.min(Math.max(ms, dayStartMs), dayEndMs);
 
-  const rowsByTask = new Map<string, Row>();
+  const rowsByProject = new Map<string, Row>();
   let totalMs = 0;
 
   for (const entry of entries) {
@@ -55,9 +55,9 @@ export function DayTimeline({
     if (endMs <= startMs) {
       continue;
     }
-    const row = rowsByTask.get(entry.taskId) ?? {
-      taskId: entry.taskId,
-      title: entry.taskTitle,
+    const row = rowsByProject.get(entry.projectId) ?? {
+      projectId: entry.projectId,
+      title: entry.projectName,
       bars: [],
       totalMs: 0,
     };
@@ -69,10 +69,10 @@ export function DayTimeline({
     });
     row.totalMs += endMs - startMs;
     totalMs += endMs - startMs;
-    rowsByTask.set(entry.taskId, row);
+    rowsByProject.set(entry.projectId, row);
   }
 
-  const rows = [...rowsByTask.values()].sort(
+  const rows = [...rowsByProject.values()].sort(
     (a, b) => Math.min(...a.bars.map((bar) => bar.startMs)) -
       Math.min(...b.bars.map((bar) => bar.startMs))
   );
@@ -123,7 +123,7 @@ export function DayTimeline({
             <Timer className="size-4" />
           </span>
           <p className="text-sm text-muted-foreground">
-            Ingen timer ført i dag ennå. Start en timer fra en oppgave, så
+            Ingen timer ført i dag ennå. Start en timer fra et prosjekt, så
             tegnes dagen din her.
           </p>
         </div>
@@ -131,7 +131,7 @@ export function DayTimeline({
         <div className="mt-4">
           <div className="grid gap-1.5">
             {rows.map((row) => (
-              <div key={row.taskId} className="flex items-center gap-3">
+              <div key={row.projectId} className="flex items-center gap-3">
                 <p
                   className="w-32 shrink-0 truncate text-sm text-foreground sm:w-40"
                   title={row.title}

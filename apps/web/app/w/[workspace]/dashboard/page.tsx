@@ -30,7 +30,7 @@ import {
   weekdayShortNb,
 } from "@/lib/format";
 import { customerLabel, parseCustomFields } from "@/lib/project-types";
-import { productionSecondsByDate } from "@/lib/production-hours";
+import { loggedSecondsByDate } from "@/lib/production-hours";
 import { requestClock } from "@/lib/request-clock";
 import { cn } from "@/lib/utils";
 
@@ -52,12 +52,11 @@ type TaskRow = {
   priority: "low" | "medium" | "urgent";
   progress: number;
   due_date: string | null;
-  category: string;
 };
 
 type TimeEntryRow = {
   id: string;
-  task_id: string;
+  project_id: string;
   started_at: string;
   ended_at: string | null;
 };
@@ -96,20 +95,20 @@ export default async function WorkspaceDashboardPage({
     supabase
       .from("tasks")
       .select(
-        "id, project_id, title, status, priority, progress, due_date, category"
+        "id, project_id, title, status, priority, progress, due_date"
       )
       .eq("workspace_id", workspace.id)
       .returns<TaskRow[]>(),
     supabase
       .from("time_entries")
-      .select("id, task_id, started_at, ended_at")
+      .select("id, project_id, started_at, ended_at")
       .eq("workspace_id", workspace.id)
-      .gte("started_at", weekStart.toISOString())
+      .gte("ended_at", weekStart.toISOString())
       .order("started_at", { ascending: true })
       .returns<TimeEntryRow[]>(),
     supabase
       .from("time_entries")
-      .select("id, task_id, started_at, ended_at")
+      .select("id, project_id, started_at, ended_at")
       .eq("workspace_id", workspace.id)
       .is("ended_at", null)
       .returns<TimeEntryRow[]>(),
@@ -172,12 +171,8 @@ export default async function WorkspaceDashboardPage({
     .sort((a, b) => (a.due_date ?? "").localeCompare(b.due_date ?? ""));
   const dueToday = openTasks.filter((task) => task.due_date === today);
 
-  const taskById = new Map(tasks.map((task) => [task.id, task]));
   const projectNameById = new Map(
     projects.map((project) => [project.id, project.name])
-  );
-  const categoryByTaskId = new Map(
-    tasks.map((task) => [task.id, task.category])
   );
 
   const dayEndMs = dayStart.getTime() + 24 * 3_600_000;
@@ -194,27 +189,22 @@ export default async function WorkspaceDashboardPage({
     return [
       {
         id: entry.id,
-        taskId: entry.task_id,
-        taskTitle: taskById.get(entry.task_id)?.title ?? "Ukjent oppgave",
+        projectId: entry.project_id,
+        projectName: projectNameById.get(entry.project_id) ?? "Ukjent prosjekt",
         startedAt: entry.started_at,
         endedAt: entry.ended_at,
       },
     ];
   });
 
-  const weekSeconds = productionSecondsByDate(
-    timeEntries,
-    categoryByTaskId,
-    weekDates,
-    nowMs
-  );
+  const weekSeconds = loggedSecondsByDate(timeEntries, weekDates, nowMs);
   const weekDays = weekDates.map((date, index) => ({
     date,
     label: weekdayShortNb(date),
-    hours: weekSeconds[index] / 3600,
+    seconds: weekSeconds[index],
     isToday: date === today,
   }));
-  const weekTotalHours = weekSeconds.reduce((sum, value) => sum + value, 0) / 3600;
+  const weekTotalSeconds = weekSeconds.reduce((sum, value) => sum + value, 0);
 
   const projectStats = new Map<
     string,
@@ -303,7 +293,7 @@ export default async function WorkspaceDashboardPage({
         nowMs={nowMs}
       />
 
-      <WeekHoursChart days={weekDays} totalHours={weekTotalHours} />
+      <WeekHoursChart days={weekDays} totalSeconds={weekTotalSeconds} />
 
       <Surface className="p-5">
         <h2 className="font-heading text-section">I dag</h2>

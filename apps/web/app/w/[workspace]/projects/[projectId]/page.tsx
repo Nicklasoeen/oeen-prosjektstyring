@@ -21,23 +21,25 @@ import {
 } from "@/components/project-notes-panel";
 import { ProjectStageControl } from "@/components/project-stage-control";
 import { ProjectTabs } from "@/components/project-tabs";
+import { ProjectTimer } from "@/components/project-timer";
 import { Surface } from "@/components/surface";
+import { TimerStoppedBanner } from "@/components/timer-stopped-banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { canEditWorkspace } from "@/lib/auth/workspace-access";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
-import { formatLoggedDuration } from "@/lib/format";
+import { formatHoursNb, formatLoggedDuration } from "@/lib/format";
 import {
   isProjectStage,
   isTaskCategory,
   isTaskPriority,
   isTaskStatus,
-  PRODUCTION_CATEGORIES,
   resolveProjectTab,
-  TASK_CATEGORY_LABELS,
   type ProjectStage,
 } from "@/lib/projects";
+import { loggedSeconds } from "@/lib/production-hours";
+import { requestClock } from "@/lib/request-clock";
 import {
   customerLabel,
   parseChecklistTemplate,
@@ -76,8 +78,7 @@ type TaskRow = {
 type AssigneeRow = { task_id: string; user_id: string };
 type MemberRow = { user_id: string };
 type UserRow = { id: string; name: string; email: string };
-type TimeRow = { task_id: string; started_at: string; ended_at: string | null };
-type RunningRow = { task_id: string };
+type TimeRow = { started_at: string; ended_at: string | null };
 type ChecklistRow = {
   id: string;
   label: string;
@@ -97,10 +98,15 @@ export default async function ProjectDetailPage({
   searchParams,
 }: {
   params: Promise<{ workspace: string; projectId: string }>;
-  searchParams: Promise<{ tab?: string; saved?: string; error?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    saved?: string;
+    error?: string;
+    stopped?: string;
+  }>;
 }) {
   const { workspace: slug, projectId } = await params;
-  const { tab: tabParam, saved, error } = await searchParams;
+  const { tab: tabParam, saved, error, stopped } = await searchParams;
   const tab = resolveProjectTab(tabParam);
   const { userId, workspace, supabase } = await requireWorkspaceAccess(
     slug,
@@ -171,10 +177,11 @@ export default async function ProjectDetailPage({
   const [
     assigneesResult,
     membersResult,
-    runningResult,
     timeResult,
+    runningResult,
     checklistResult,
     notesResult,
+    now,
   ] = await Promise.all([
     taskIds.length > 0
       ? supabase
@@ -189,25 +196,20 @@ export default async function ProjectDetailPage({
       .select("user_id")
       .eq("workspace_id", workspace.id)
       .returns<MemberRow[]>(),
-    taskIds.length > 0
-      ? supabase
-          .from("time_entries")
-          .select("task_id")
-          .eq("workspace_id", workspace.id)
-          .eq("user_id", userId)
-          .in("task_id", taskIds)
-          .is("ended_at", null)
-          .returns<RunningRow[]>()
-      : Promise.resolve({ data: [] as RunningRow[], error: null }),
-    taskIds.length > 0
-      ? supabase
-          .from("time_entries")
-          .select("task_id, started_at, ended_at")
-          .eq("workspace_id", workspace.id)
-          .in("task_id", taskIds)
-          .not("ended_at", "is", null)
-          .returns<TimeRow[]>()
-      : Promise.resolve({ data: [] as TimeRow[], error: null }),
+    supabase
+      .from("time_entries")
+      .select("started_at, ended_at")
+      .eq("project_id", project.id)
+      .eq("workspace_id", workspace.id)
+      .returns<TimeRow[]>(),
+    supabase
+      .from("time_entries")
+      .select("id")
+      .eq("project_id", project.id)
+      .eq("workspace_id", workspace.id)
+      .eq("user_id", userId)
+      .is("ended_at", null)
+      .maybeSingle<{ id: string }>(),
     supabase
       .from("project_checklist_items")
       .select("id, label, checked, is_custom")
@@ -222,6 +224,7 @@ export default async function ProjectDetailPage({
       .eq("workspace_id", workspace.id)
       .order("created_at", { ascending: false })
       .returns<NoteRow[]>(),
+    requestClock(),
   ]);
 
   if (assigneesResult.error) {
@@ -271,35 +274,9 @@ export default async function ProjectDetailPage({
     current.push(row.user_id);
     assigneeIdsByTask.set(row.task_id, current);
   }
-  const runningByTaskId = new Set(
-    (runningResult.data ?? []).map((row) => row.task_id)
-  );
 
-  // Live production-hours calculation: only design/development tasks count.
-  const categoryByTaskId = new Map(
-    tasks.map((task) => [
-      task.id,
-      isTaskCategory(task.category) ? task.category : "development",
-    ])
-  );
-  let loggedSeconds = 0;
-  let productionSeconds = 0;
-  for (const row of timeResult.data ?? []) {
-    if (!row.ended_at) {
-      continue;
-    }
-    const start = new Date(row.started_at).getTime();
-    const end = new Date(row.ended_at).getTime();
-    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) {
-      continue;
-    }
-    const seconds = (end - start) / 1000;
-    loggedSeconds += seconds;
-    const category = categoryByTaskId.get(row.task_id);
-    if (category && PRODUCTION_CATEGORIES.includes(category)) {
-      productionSeconds += seconds;
-    }
-  }
+  const logged = loggedSeconds(timeResult.data ?? [], now.getTime());
+  const timerRunning = Boolean(runningResult.data);
 
   const kanbanTasks: KanbanTask[] = tasks.map((task) => ({
     id: task.id,
@@ -310,7 +287,6 @@ export default async function ProjectDetailPage({
     priority: isTaskPriority(task.priority) ? task.priority : "medium",
     due_date: task.due_date,
     assigneeIds: assigneeIdsByTask.get(task.id) ?? [],
-    running: runningByTaskId.has(task.id),
   }));
 
   const sections = [
@@ -376,6 +352,13 @@ export default async function ProjectDetailPage({
         </div>
       ) : null}
 
+      {stopped ? (
+        <TimerStoppedBanner
+          projectName={stopped}
+          href={`${hrefBase}${tab === "oversikt" ? "" : `?tab=${tab}`}`}
+        />
+      ) : null}
+
       <ProjectTabs hrefBase={hrefBase} active={tab} />
 
       {tab === "oversikt" ? (
@@ -394,43 +377,36 @@ export default async function ProjectDetailPage({
           <div className="flex flex-col gap-6">
             <Surface className="p-5">
               <div className="flex items-start justify-between gap-3">
-                <p className="text-label text-muted-foreground">
-                  Produksjonstimer
-                </p>
+                <p className="text-label text-muted-foreground">Førte timer</p>
                 <span className="flex size-8 items-center justify-center rounded-lg bg-workspace-wash text-workspace-accent">
                   <Timer className="size-4" />
                 </span>
               </div>
               <p className="mt-3 font-heading text-display tabular-nums">
-                {formatHours(productionSeconds / 3600)}
+                {formatLoggedDuration(logged)}
                 {estimatedHours !== null ? (
                   <span className="text-base font-medium text-muted-foreground">
                     {" "}
-                    av {formatHours(estimatedHours)} t
+                    av {formatHoursNb(estimatedHours)} t
                   </span>
-                ) : (
-                  <span className="text-base font-medium text-muted-foreground">
-                    {" "}
-                    t
-                  </span>
-                )}
+                ) : null}
               </p>
               {estimatedHours !== null && estimatedHours > 0 ? (
                 <>
                   <ProgressBar
-                    value={(productionSeconds / 3600 / estimatedHours) * 100}
+                    value={(logged / 3600 / estimatedHours) * 100}
                     className="mt-3"
                   />
                   <p
                     className={
-                      productionSeconds / 3600 > estimatedHours
+                      logged / 3600 > estimatedHours
                         ? "mt-2 text-label font-medium text-destructive"
                         : "mt-2 text-label text-muted-foreground"
                     }
                   >
-                    {productionSeconds / 3600 > estimatedHours
-                      ? `${formatHours(productionSeconds / 3600 - estimatedHours)} t over estimatet`
-                      : `${formatHours(estimatedHours - productionSeconds / 3600)} t igjen av estimatet`}
+                    {logged / 3600 > estimatedHours
+                      ? `${formatLoggedDuration(logged - estimatedHours * 3600)} over estimatet`
+                      : `${formatLoggedDuration(estimatedHours * 3600 - logged)} igjen av estimatet`}
                   </p>
                 </>
               ) : (
@@ -438,12 +414,14 @@ export default async function ProjectDetailPage({
                   Sett et timeestimat på Detaljer-fanen for å følge forbruket.
                 </p>
               )}
-              <p className="mt-3 border-t border-border pt-3 font-mono text-label text-muted-foreground">
-                Totalt ført: {formatLoggedDuration(loggedSeconds)} (kun{" "}
-                {TASK_CATEGORY_LABELS.design.toLowerCase()}/
-                {TASK_CATEGORY_LABELS.development.toLowerCase()} teller mot
-                estimatet)
-              </p>
+              <div className="mt-4 flex flex-wrap items-center justify-end gap-3 border-t border-border pt-4">
+                <ProjectTimer
+                  slug={slug}
+                  projectId={project.id}
+                  running={timerRunning}
+                  canEdit={canEdit}
+                />
+              </div>
             </Surface>
             <Surface className="p-5">
               <ProjectChecklist
@@ -567,11 +545,4 @@ export default async function ProjectDetailPage({
       ) : null}
     </PageFrame>
   );
-}
-
-function formatHours(hours: number): string {
-  return new Intl.NumberFormat("nb-NO", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 1,
-  }).format(Math.max(0, hours));
 }

@@ -1,22 +1,9 @@
 import { addCalendarDays, osloStartOfDay } from "@/lib/format";
-import {
-  PRODUCTION_CATEGORIES,
-  isTaskCategory,
-  type TaskCategory,
-} from "@/lib/projects";
 
 export type TimedEntry = {
-  task_id: string;
   started_at: string;
   ended_at: string | null;
 };
-
-export function isProductionCategory(value: string): value is TaskCategory {
-  return (
-    isTaskCategory(value) &&
-    (PRODUCTION_CATEGORIES as readonly string[]).includes(value)
-  );
-}
 
 function entryBounds(
   startedAt: string,
@@ -31,18 +18,10 @@ function entryBounds(
   return { startMs, endMs };
 }
 
-/** Live SUM of production time — design and development only, never stored. */
-export function productionSeconds(
-  entries: TimedEntry[],
-  categoryByTaskId: Map<string, string>,
-  nowMs: number
-): number {
+/** Live SUM of logged time on the given entries. Running rows count until now. */
+export function loggedSeconds(entries: TimedEntry[], nowMs: number): number {
   let total = 0;
   for (const entry of entries) {
-    const category = categoryByTaskId.get(entry.task_id);
-    if (!category || !isProductionCategory(category)) {
-      continue;
-    }
     const bounds = entryBounds(entry.started_at, entry.ended_at, nowMs);
     if (!bounds) {
       continue;
@@ -53,12 +32,11 @@ export function productionSeconds(
 }
 
 /**
- * Splits production time across Oslo calendar days. Entries that cross
+ * Splits logged time across Oslo calendar days. Entries that cross
  * midnight contribute to each day they overlap.
  */
-export function productionSecondsByDate(
+export function loggedSecondsByDate(
   entries: TimedEntry[],
-  categoryByTaskId: Map<string, string>,
   dates: string[],
   nowMs: number
 ): number[] {
@@ -74,10 +52,6 @@ export function productionSecondsByDate(
   ).getTime();
 
   for (const entry of entries) {
-    const category = categoryByTaskId.get(entry.task_id);
-    if (!category || !isProductionCategory(category)) {
-      continue;
-    }
     const bounds = entryBounds(entry.started_at, entry.ended_at, nowMs);
     if (!bounds) {
       continue;

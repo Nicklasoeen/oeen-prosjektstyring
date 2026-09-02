@@ -136,33 +136,51 @@ export function clampPercent(value: number): number {
   return Math.min(100, Math.max(0, Math.round(value)));
 }
 
+/**
+ * Shared duration formatter.
+ * Static: days, hours, minutes — omit leading zero units ("3t 20m", "1d 3t 20m").
+ * Live pill: same, but always include seconds ("3t 20m 15s", "42s").
+ */
+export function formatDuration(
+  totalSeconds: number,
+  options: { seconds?: boolean } = {}
+): string {
+  const includeSeconds = options.seconds === true;
+  const raw = Number.isFinite(totalSeconds) ? totalSeconds : 0;
+  const whole = Math.max(0, Math.floor(raw));
+  const days = Math.floor(whole / 86_400);
+  const hours = Math.floor((whole % 86_400) / 3_600);
+  const minutes = Math.floor((whole % 3_600) / 60);
+  const seconds = whole % 60;
+  const parts: string[] = [];
+  if (days > 0) {
+    parts.push(`${days}d`);
+  }
+  if (hours > 0) {
+    parts.push(`${hours}t`);
+  }
+  if (minutes > 0) {
+    parts.push(`${minutes}m`);
+  }
+  if (includeSeconds) {
+    parts.push(`${seconds}s`);
+  } else if (parts.length === 0) {
+    parts.push("0m");
+  }
+  return parts.join(" ");
+}
+
 export function formatElapsedClock(
   startedAt: string,
   now = Date.now()
 ): string {
   const start = new Date(startedAt).getTime();
   if (Number.isNaN(start)) {
-    return "0t 00m 00s";
+    return formatDuration(0, { seconds: true });
   }
-  const totalSeconds = Math.max(0, Math.floor((now - start) / 1000));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  return `${hours}t ${String(minutes).padStart(2, "0")}m ${String(seconds).padStart(2, "0")}s`;
+  return formatDuration((now - start) / 1000, { seconds: true });
 }
 
 export function formatLoggedDuration(totalSeconds: number): string {
-  const seconds = Math.max(0, Math.floor(totalSeconds));
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
-  if (hours === 0 && minutes === 0) {
-    return "0 t";
-  }
-  if (hours === 0) {
-    return `${minutes} min`;
-  }
-  if (minutes === 0) {
-    return `${hours} t`;
-  }
-  return `${hours} t ${minutes} min`;
+  return formatDuration(totalSeconds);
 }

@@ -2,9 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type RunningTimer = {
   entryId: string;
-  taskId: string;
-  taskTitle: string;
   projectId: string;
+  projectName: string;
   workspaceId: string;
   workspaceSlug: string;
   workspaceName: string;
@@ -13,16 +12,12 @@ export type RunningTimer = {
 
 type TimeEntryRow = {
   id: string;
-  task_id: string;
+  project_id: string;
   workspace_id: string;
   started_at: string;
 };
 
-type TaskRow = {
-  id: string;
-  title: string;
-  project_id: string;
-};
+type ProjectRow = { id: string; name: string };
 
 type WorkspaceRow = {
   id: string;
@@ -36,7 +31,7 @@ export async function findRunningTimer(
 ): Promise<RunningTimer | null> {
   const { data: entry, error } = await supabase
     .from("time_entries")
-    .select("id, task_id, workspace_id, started_at")
+    .select("id, project_id, workspace_id, started_at")
     .eq("user_id", userId)
     .is("ended_at", null)
     .maybeSingle<TimeEntryRow>();
@@ -45,13 +40,13 @@ export async function findRunningTimer(
     return null;
   }
 
-  const [{ data: task }, { data: workspace }] = await Promise.all([
+  const [{ data: project }, { data: workspace }] = await Promise.all([
     supabase
-      .from("tasks")
-      .select("id, title, project_id")
-      .eq("id", entry.task_id)
+      .from("projects")
+      .select("id, name")
+      .eq("id", entry.project_id)
       .eq("workspace_id", entry.workspace_id)
-      .maybeSingle<TaskRow>(),
+      .maybeSingle<ProjectRow>(),
     supabase
       .from("workspaces")
       .select("id, slug, name")
@@ -59,15 +54,14 @@ export async function findRunningTimer(
       .maybeSingle<WorkspaceRow>(),
   ]);
 
-  if (!task || !workspace) {
+  if (!project || !workspace) {
     return null;
   }
 
   return {
     entryId: entry.id,
-    taskId: task.id,
-    taskTitle: task.title,
-    projectId: task.project_id,
+    projectId: project.id,
+    projectName: project.name,
     workspaceId: workspace.id,
     workspaceSlug: workspace.slug,
     workspaceName: workspace.name,
