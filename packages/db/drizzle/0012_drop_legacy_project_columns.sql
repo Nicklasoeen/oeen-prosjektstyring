@@ -1,6 +1,4 @@
--- NOT YET REGISTERED IN meta/_journal.json — intentionally not applied.
--- Add the journal entry only after confirming the 0011 backfill looks right.
--- Every column dropped here now lives in projects.custom_fields.
+-- Data now lives in projects.custom_fields (see 0011).
 ALTER TABLE "projects" DROP COLUMN "type";--> statement-breakpoint
 ALTER TABLE "projects" DROP COLUMN "customer_name";--> statement-breakpoint
 ALTER TABLE "projects" DROP COLUMN "domain";--> statement-breakpoint

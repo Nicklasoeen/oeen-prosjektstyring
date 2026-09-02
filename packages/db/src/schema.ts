@@ -39,17 +39,6 @@ export const projectStageEnum = pgEnum("project_stage", [
   "completed",
 ]);
 
-/**
- * Legacy fixed project types. Superseded by the workspace-configurable
- * `project_types` table; the column is dropped in a follow-up migration.
- */
-export const projectTypeEnum = pgEnum("project_type", [
-  "custom_website",
-  "landing_page",
-  "graphic",
-  "other",
-]);
-
 export const taskStatusEnum = pgEnum("task_status", [
   "todo",
   "in_progress",

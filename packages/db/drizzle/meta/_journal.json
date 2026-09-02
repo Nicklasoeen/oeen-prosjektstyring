@@ -85,6 +85,13 @@
       "when": 1788678000000,
       "tag": "0011_configurable_project_types",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1788680400000,
+      "tag": "0012_drop_legacy_project_columns",
+      "breakpoints": true
     }
   ]
 }
