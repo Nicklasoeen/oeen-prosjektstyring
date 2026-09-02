@@ -1,10 +1,7 @@
-"use client";
-
 import Link from "next/link";
-import { FolderPlus, KeyRound, ListPlus, MessageSquare } from "lucide-react";
+import { ClipboardList, FolderPlus, ListPlus, Timer } from "lucide-react";
 import type { ReactNode } from "react";
 
-import { useChatUi } from "@/components/chat-provider";
 import { surfaceClass } from "@/components/surface";
 import { cn } from "@/lib/utils";
 
@@ -13,17 +10,9 @@ const tileClass = cn(
   "group flex w-full items-center gap-3.5 p-4 text-left transition-all hover:-translate-y-px hover:shadow-[0_8px_28px_rgba(26,35,48,0.09)]"
 );
 
-export function DashboardQuickActions({
-  slug,
-  hasKey,
-}: {
-  slug: string;
-  hasKey: boolean;
-}) {
-  const { setOpen } = useChatUi();
-
+export function DashboardQuickActions({ slug }: { slug: string }) {
   return (
-    <section className="grid gap-3 sm:grid-cols-3">
+    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
       <Link href={`/w/${slug}/projects#nytt`} className={tileClass}>
         <TileIcon>
           <FolderPlus className="size-4" />
@@ -36,21 +25,18 @@ export function DashboardQuickActions({
         </TileIcon>
         <TileText title="Ny oppgave" sub="Velg prosjekt og legg til" />
       </Link>
-      {hasKey ? (
-        <button type="button" onClick={() => setOpen(true)} className={tileClass}>
-          <TileIcon accent>
-            <MessageSquare className="size-4" />
-          </TileIcon>
-          <TileText title="Spør assistenten" sub="Chat om arbeidet i workspace-et" />
-        </button>
-      ) : (
-        <Link href={`/w/${slug}/settings`} className={tileClass}>
-          <TileIcon accent>
-            <KeyRound className="size-4" />
-          </TileIcon>
-          <TileText title="Aktiver chat" sub="Legg inn Anthropic-nøkkelen din" />
-        </Link>
-      )}
+      <Link href={`/w/${slug}/timeoversikt`} className={tileClass}>
+        <TileIcon accent>
+          <Timer className="size-4" />
+        </TileIcon>
+        <TileText title="Timeoversikt" sub="Timer mot estimat" />
+      </Link>
+      <Link href={`/w/${slug}/sjekklister`} className={tileClass}>
+        <TileIcon accent>
+          <ClipboardList className="size-4" />
+        </TileIcon>
+        <TileText title="Sjekklister" sub="Åpne punkter per prosjekt" />
+      </Link>
     </section>
   );
 }

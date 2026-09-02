@@ -72,6 +72,43 @@ export function formatFullDateNb(now = new Date()): string {
   return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
+/** Adds calendar days to a YYYY-MM-DD string without timezone drift. */
+export function addCalendarDays(dateStr: string, days: number): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days))
+    .toISOString()
+    .slice(0, 10);
+}
+
+/** Monday of the ISO week that contains the given YYYY-MM-DD. */
+export function mondayOfWeek(dateStr: string): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const daysFromMonday = weekday === 0 ? 6 : weekday - 1;
+  return addCalendarDays(dateStr, -daysFromMonday);
+}
+
+export function weekDatesFrom(dateStr: string): string[] {
+  const monday = mondayOfWeek(dateStr);
+  return Array.from({ length: 7 }, (_, index) => addCalendarDays(monday, index));
+}
+
+const WEEKDAY_SHORT_NB = ["Man", "Tir", "Ons", "Tor", "Fre", "Lør", "Søn"] as const;
+
+export function weekdayShortNb(dateStr: string): string {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  const index = weekday === 0 ? 6 : weekday - 1;
+  return WEEKDAY_SHORT_NB[index];
+}
+
+export function formatHoursNb(hours: number): string {
+  return new Intl.NumberFormat("nb-NO", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  }).format(Math.max(0, hours));
+}
+
 export function formatRelativeNb(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {

@@ -1,18 +1,11 @@
 import Link from "next/link";
-import { connection } from "next/server";
 import {
   ArrowUpRight,
   CalendarCheck2,
   CheckCircle2,
   CircleDot,
   FolderKanban,
-  FolderPlus,
-  ListPlus,
   ListTodo,
-  LogOut,
-  Pencil,
-  Play,
-  Square,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
@@ -24,16 +17,21 @@ import { ProgressBar } from "@/components/progress-bar";
 import { PriorityBadge, TaskStatusBadge } from "@/components/status-badge";
 import { Surface, surfaceClass } from "@/components/surface";
 import { Button } from "@/components/ui/button";
+import { WeekHoursChart } from "@/components/week-hours-chart";
 import { requireWorkspaceAccess } from "@/lib/auth/require-workspace";
 import {
   formatDueDateNb,
   formatFullDateNb,
-  formatRelativeNb,
+  mondayOfWeek,
   osloHourNow,
   osloStartOfDay,
   todayInOslo,
+  weekDatesFrom,
+  weekdayShortNb,
 } from "@/lib/format";
 import { customerLabel, parseCustomFields } from "@/lib/project-types";
+import { productionSecondsByDate } from "@/lib/production-hours";
+import { requestClock } from "@/lib/request-clock";
 import { cn } from "@/lib/utils";
 
 type ProjectRow = {
@@ -54,15 +52,7 @@ type TaskRow = {
   priority: "low" | "medium" | "urgent";
   progress: number;
   due_date: string | null;
-};
-
-type ActivityRow = {
-  id: string;
-  user_id: string;
-  entity_type: string;
-  entity_id: string;
-  action: string;
-  created_at: string;
+  category: string;
 };
 
 type TimeEntryRow = {
@@ -86,13 +76,14 @@ export default async function WorkspaceDashboardPage({
   const now = await requestClock();
   const today = todayInOslo();
   const dayStart = osloStartOfDay(today);
+  const weekDates = weekDatesFrom(today);
+  const weekStart = osloStartOfDay(mondayOfWeek(today));
 
   const [
     projectsResult,
     tasksResult,
-    activityResult,
-    credentialResult,
     timeEntriesResult,
+    runningEntriesResult,
     profileResult,
     projectTypesResult,
   ] = await Promise.all([
@@ -104,28 +95,23 @@ export default async function WorkspaceDashboardPage({
       .returns<ProjectRow[]>(),
     supabase
       .from("tasks")
-      .select("id, project_id, title, status, priority, progress, due_date")
+      .select(
+        "id, project_id, title, status, priority, progress, due_date, category"
+      )
       .eq("workspace_id", workspace.id)
       .returns<TaskRow[]>(),
-    supabase
-      .from("activity_log")
-      .select("id, user_id, entity_type, entity_id, action, created_at")
-      .eq("workspace_id", workspace.id)
-      .order("created_at", { ascending: false })
-      .limit(12)
-      .returns<ActivityRow[]>(),
-    supabase
-      .from("user_credentials")
-      .select("id")
-      .eq("user_id", userId)
-      .eq("provider", "anthropic")
-      .maybeSingle<{ id: string }>(),
     supabase
       .from("time_entries")
       .select("id, task_id, started_at, ended_at")
       .eq("workspace_id", workspace.id)
-      .gte("started_at", dayStart.toISOString())
+      .gte("started_at", weekStart.toISOString())
       .order("started_at", { ascending: true })
+      .returns<TimeEntryRow[]>(),
+    supabase
+      .from("time_entries")
+      .select("id, task_id, started_at, ended_at")
+      .eq("workspace_id", workspace.id)
+      .is("ended_at", null)
       .returns<TimeEntryRow[]>(),
     supabase
       .from("users")
@@ -145,14 +131,11 @@ export default async function WorkspaceDashboardPage({
   if (tasksResult.error) {
     throw tasksResult.error;
   }
-  if (activityResult.error) {
-    throw activityResult.error;
-  }
-  if (credentialResult.error) {
-    throw credentialResult.error;
-  }
   if (timeEntriesResult.error) {
     throw timeEntriesResult.error;
+  }
+  if (runningEntriesResult.error) {
+    throw runningEntriesResult.error;
   }
   if (projectTypesResult.error) {
     throw projectTypesResult.error;
@@ -163,8 +146,14 @@ export default async function WorkspaceDashboardPage({
   );
   const projects = projectsResult.data ?? [];
   const tasks = tasksResult.data ?? [];
-  const activity = activityResult.data ?? [];
-  const timeEntries = timeEntriesResult.data ?? [];
+  const timeById = new Map<string, TimeEntryRow>();
+  for (const row of [
+    ...(timeEntriesResult.data ?? []),
+    ...(runningEntriesResult.data ?? []),
+  ]) {
+    timeById.set(row.id, row);
+  }
+  const timeEntries = [...timeById.values()];
 
   const activeProjects = projects.filter(
     (project) => project.stage !== "completed"
@@ -187,14 +176,45 @@ export default async function WorkspaceDashboardPage({
   const projectNameById = new Map(
     projects.map((project) => [project.id, project.name])
   );
+  const categoryByTaskId = new Map(
+    tasks.map((task) => [task.id, task.category])
+  );
 
-  const timelineEntries: TimelineEntry[] = timeEntries.map((entry) => ({
-    id: entry.id,
-    taskId: entry.task_id,
-    taskTitle: taskById.get(entry.task_id)?.title ?? "Ukjent oppgave",
-    startedAt: entry.started_at,
-    endedAt: entry.ended_at,
+  const dayEndMs = dayStart.getTime() + 24 * 3_600_000;
+  const nowMs = now.getTime();
+  const timelineEntries: TimelineEntry[] = timeEntries.flatMap((entry) => {
+    const startMs = new Date(entry.started_at).getTime();
+    const endMs = entry.ended_at ? new Date(entry.ended_at).getTime() : nowMs;
+    if (Number.isNaN(startMs) || Number.isNaN(endMs) || endMs <= startMs) {
+      return [];
+    }
+    if (endMs <= dayStart.getTime() || startMs >= dayEndMs) {
+      return [];
+    }
+    return [
+      {
+        id: entry.id,
+        taskId: entry.task_id,
+        taskTitle: taskById.get(entry.task_id)?.title ?? "Ukjent oppgave",
+        startedAt: entry.started_at,
+        endedAt: entry.ended_at,
+      },
+    ];
+  });
+
+  const weekSeconds = productionSecondsByDate(
+    timeEntries,
+    categoryByTaskId,
+    weekDates,
+    nowMs
+  );
+  const weekDays = weekDates.map((date, index) => ({
+    date,
+    label: weekdayShortNb(date),
+    hours: weekSeconds[index] / 3600,
+    isToday: date === today,
   }));
+  const weekTotalHours = weekSeconds.reduce((sum, value) => sum + value, 0) / 3600;
 
   const projectStats = new Map<
     string,
@@ -235,10 +255,7 @@ export default async function WorkspaceDashboardPage({
         description={`${formatFullDateNb(now)} · ${workspace.name}`}
       />
 
-      <DashboardQuickActions
-        slug={slug}
-        hasKey={Boolean(credentialResult.data)}
-      />
+      <DashboardQuickActions slug={slug} />
 
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -283,80 +300,48 @@ export default async function WorkspaceDashboardPage({
       <DayTimeline
         entries={timelineEntries}
         dayStartMs={dayStart.getTime()}
-        nowMs={now.getTime()}
+        nowMs={nowMs}
       />
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-        <Surface className="p-5">
-          <h2 className="font-heading text-section">I dag</h2>
-          {overdue.length === 0 && dueToday.length === 0 ? (
-            <div className="mt-4 flex items-center gap-3 rounded-xl bg-muted/50 p-4">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-workspace-wash text-workspace-accent">
-                <CalendarCheck2 className="size-4" />
-              </span>
-              <p className="text-sm text-muted-foreground">
-                Ingen frister i dag, og ingenting er forfalt. Alt under
-                kontroll.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-4 space-y-5">
-              {overdue.length > 0 ? (
-                <DueGroup
-                  label="Forfalt"
-                  tone="destructive"
-                  tasks={overdue}
-                  slug={slug}
-                  today={today}
-                  projectNameById={projectNameById}
-                />
-              ) : null}
-              {dueToday.length > 0 ? (
-                <DueGroup
-                  label="Frist i dag"
-                  tone="default"
-                  tasks={dueToday}
-                  slug={slug}
-                  today={today}
-                  projectNameById={projectNameById}
-                />
-              ) : null}
-            </div>
-          )}
-        </Surface>
+      <WeekHoursChart days={weekDays} totalHours={weekTotalHours} />
 
-        <Surface className="p-5">
-          <h2 className="font-heading text-section">Aktivitet</h2>
-          {activity.length === 0 ? (
-            <p className="mt-4 text-sm text-muted-foreground">
-              Når du oppretter prosjekter, oppgaver eller starter timer, vises
-              det her.
+      <Surface className="p-5">
+        <h2 className="font-heading text-section">I dag</h2>
+        {overdue.length === 0 && dueToday.length === 0 ? (
+          <div className="mt-4 flex items-center gap-3 rounded-xl bg-muted/50 p-4">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-workspace-wash text-workspace-accent">
+              <CalendarCheck2 className="size-4" />
+            </span>
+            <p className="text-sm text-muted-foreground">
+              Ingen frister i dag, og ingenting er forfalt. Alt under
+              kontroll.
             </p>
-          ) : (
-            <ul className="mt-4 space-y-1">
-              {activity.map((row) => (
-                <li key={row.id} className="flex gap-3 rounded-lg px-1 py-2">
-                  <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground [&_svg]:size-3.5">
-                    {activityIcon(row.action, row.entity_type)}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-sm text-foreground">
-                      <span className="font-medium">
-                        {row.user_id === userId ? "Du" : "Noen"}
-                      </span>{" "}
-                      {activityVerb(row.action, row.entity_type)}
-                      {activitySubject(row, projectNameById, taskById)}
-                    </p>
-                    <p className="mt-0.5 font-mono text-label text-muted-foreground">
-                      {formatRelativeNb(row.created_at)}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Surface>
-      </div>
+          </div>
+        ) : (
+          <div className="mt-4 space-y-5">
+            {overdue.length > 0 ? (
+              <DueGroup
+                label="Forfalt"
+                tone="destructive"
+                tasks={overdue}
+                slug={slug}
+                today={today}
+                projectNameById={projectNameById}
+              />
+            ) : null}
+            {dueToday.length > 0 ? (
+              <DueGroup
+                label="Frist i dag"
+                tone="default"
+                tasks={dueToday}
+                slug={slug}
+                today={today}
+                projectNameById={projectNameById}
+              />
+            ) : null}
+          </div>
+        )}
+      </Surface>
 
       <section className="space-y-3">
         <div className="flex items-center justify-between gap-3">
@@ -540,11 +525,6 @@ function StatCard({
   );
 }
 
-async function requestClock(): Promise<Date> {
-  await connection();
-  return new Date();
-}
-
 function greetingNb(now: Date): string {
   const hour = osloHourNow(now);
   if (hour >= 5 && hour < 10) {
@@ -554,82 +534,4 @@ function greetingNb(now: Date): string {
     return "God dag";
   }
   return "God kveld";
-}
-
-function activityIcon(action: string, entityType: string): ReactNode {
-  if (action === "created" && entityType === "project") {
-    return <FolderPlus />;
-  }
-  if (action === "created" && entityType === "task") {
-    return <ListPlus />;
-  }
-  if (action === "timer.started") {
-    return <Play />;
-  }
-  if (action === "timer.stopped") {
-    return <Square />;
-  }
-  if (action === "left") {
-    return <LogOut />;
-  }
-  return <Pencil />;
-}
-
-function activityVerb(action: string, entityType: string): string {
-  if (action === "created" && entityType === "project") {
-    return "opprettet prosjektet";
-  }
-  if (action === "created" && entityType === "task") {
-    return "opprettet oppgaven";
-  }
-  if (action === "created" && entityType === "project_note") {
-    return "skrev et notat";
-  }
-  if (action === "created" && entityType === "checklist_item") {
-    return "la til et sjekkpunkt";
-  }
-  if (action === "timer.started") {
-    return "startet timer";
-  }
-  if (action === "timer.stopped") {
-    return "stoppet timer";
-  }
-  if (action === "stage.changed") {
-    return "flyttet prosjektet til ny fase";
-  }
-  if (action === "updated" && entityType === "workspace") {
-    return "oppdaterte workspace-et";
-  }
-  if (action === "updated" && entityType === "project") {
-    return "oppdaterte prosjektet";
-  }
-  if (action === "updated" && entityType === "task") {
-    return "oppdaterte oppgaven";
-  }
-  if (action === "updated" && entityType === "checklist_item") {
-    return "oppdaterte sjekklisten";
-  }
-  if (action === "updated" && entityType === "project_note") {
-    return "flyttet et notat";
-  }
-  if (action === "left") {
-    return "forlot workspace-et";
-  }
-  return action;
-}
-
-function activitySubject(
-  row: ActivityRow,
-  projectNameById: Map<string, string>,
-  taskById: Map<string, TaskRow>
-): string {
-  if (row.entity_type === "project") {
-    const name = projectNameById.get(row.entity_id);
-    return name ? ` ${name}` : "";
-  }
-  if (row.entity_type === "task") {
-    const name = taskById.get(row.entity_id)?.title;
-    return name ? ` ${name}` : "";
-  }
-  return "";
 }

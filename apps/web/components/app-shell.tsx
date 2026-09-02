@@ -198,7 +198,13 @@ function breadcrumbs(
   if (pathname === projectsHref) {
     return ["Prosjekter"];
   }
-  if (pathname === settingsHref) {
+  if (pathname.endsWith("/timeoversikt")) {
+    return ["Timeoversikt"];
+  }
+  if (pathname.endsWith("/sjekklister")) {
+    return ["Sjekklister"];
+  }
+  if (pathname === settingsHref || pathname.startsWith(`${settingsHref}/`)) {
     return ["Innstillinger"];
   }
   return ["Dashboard"];
